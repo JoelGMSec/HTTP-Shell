@@ -1,4 +1,4 @@
-<p align="center"><img width=450 alt="HTTP-Shell" src="https://github.com/JoelGMSec/HTTP-Shell/blob/main/HTTP-Shell.png"></p>
+<p align="center"><img width=550 alt="HTTP-Shell" src="https://github.com/JoelGMSec/HTTP-Shell/blob/main/HTTP-Shell.png"></p>
 
 # HTTP-Shell
 **HTTP-Shell** is Multiplatform Reverse Shell. This tool helps you to obtain a shell-like interface on a reverse connection over HTTP. Unlike other reverse shells, the main goal of the tool is to use it in conjunction with Microsoft Dev Tunnels, in order to get a connection as close as possible to a legitimate one.
