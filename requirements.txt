@@ -1,0 +1,4 @@
+readline
+http.server
+neotermcolor
+
