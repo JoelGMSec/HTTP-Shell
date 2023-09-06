@@ -33,11 +33,30 @@ class MyServer(BaseHTTPRequestHandler):
         self.send_header("Content-type", "text/plain")
         self.end_headers()
 
+    def encode_file_revbase64url(self, file_content):
+        try:
+            encoded = base64.b64encode(file_content).decode("utf-8")
+            encoded = encoded.replace("+", "-").replace("/", "_").rstrip("=")
+            return encoded[::-1]
+        except:
+            pass
+
     def encode_reversed_base64url(self, plain_data):
         try:
             encoded = base64.b64encode(plain_data.encode("utf-8")).decode("utf-8")
             encoded = encoded.replace("+", "-").replace("/", "_").rstrip("=")
             return encoded[::-1]
+        except:
+            pass
+
+    def decode_file_revbase64url(self, file_content):
+        try:
+            encoded_data = file_content[::-1]
+            base64_data = encoded_data.replace("-", "+").replace("_", "/")
+            while len(base64_data) % 4 != 0:
+                base64_data += "="
+            decoded_data = base64.b64decode(base64_data)
+            return decoded_data
         except:
             pass
 
@@ -57,10 +76,10 @@ class MyServer(BaseHTTPRequestHandler):
         global local_path ; global remote_path ; global command
         try:
             if self.path == "/api/download":
-                with open(local_path, "r") as file:
+                with open(local_path, "rb") as file:
                     file_content = file.read()
                     encoded_file = "File: "
-                    encoded_file += self.encode_reversed_base64url(file_content)
+                    encoded_file += self.encode_file_revbase64url(file_content)
                 self._set_headers()
                 self.wfile.write(encoded_file.encode("utf-8"))
 
@@ -143,7 +162,7 @@ class MyServer(BaseHTTPRequestHandler):
                         break
 
         except(AttributeError, UnboundLocalError, BrokenPipeError, ConnectionResetError, IndexError, TypeError):
-            command = "$null"
+            command = "HTTPShellNull"
             pass
 
         return noerror, first_run, command
@@ -164,8 +183,9 @@ class MyServer(BaseHTTPRequestHandler):
                 decoded_payload = self.decode_reversed_base64url(encoded_payload)
 
             if self.path == "/api/upload":
-                with open(local_path, "w") as f:
-                    f.write(decoded_payload)
+                with open(local_path, "wb") as f:
+                    file_content = self.decode_file_revbase64url(encoded_payload)
+                    f.write(file_content)
                 return
 
             elif self.path == "/api/debug":
@@ -179,7 +199,9 @@ class MyServer(BaseHTTPRequestHandler):
 
             elif self.path == "/api/error":
                 if noerror and command is not None:
-                    if "HTTP-Client.sh" in decoded_payload:
+                    if command == "HTTPShellNull":
+                        pass
+                    elif "HTTP-Client.sh" in decoded_payload:
                         decoded_payload = decoded_payload.split(":")[-1]
                         replace_payload = "bash: " + command + ":" + decoded_payload
                         print(colored(replace_payload.rstrip()+"\n", "red"))
