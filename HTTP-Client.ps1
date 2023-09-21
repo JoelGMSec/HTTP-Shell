@@ -28,6 +28,8 @@ return true; }}
 $AllProtocols = [System.Net.SecurityProtocolType]"Ssl3,Tls,Tls11,Tls12"
 [System.Net.ServicePointManager]::SecurityProtocol = $AllProtocols
 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+[System.Net.WebRequest]::DefaultWebProxy = [System.Net.WebRequest]::GetSystemWebProxy()
+[System.Net.WebRequest]::DefaultWebProxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
 
 # Functions
 function Get-Env {
