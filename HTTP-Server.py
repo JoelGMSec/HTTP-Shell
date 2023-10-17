@@ -221,6 +221,11 @@ class MyServer(BaseHTTPRequestHandler):
                 if not first_run and command is not None:
                     if decoded_payload == "HTTPShellNull":
                         print()
+                    elif "[sudo]" in decoded_payload:
+                        lines = decoded_payload.split("\n")
+                        filtered_lines = [line for line in lines if "[sudo]" not in line]
+                        decoded_payload = "\n".join(filtered_lines)
+                        print(colored(decoded_payload.rstrip()+"\n", "yellow"))
                     elif decoded_payload == None:
                         print()
                     else:
@@ -231,6 +236,11 @@ class MyServer(BaseHTTPRequestHandler):
                 if noerror and command is not None:
                     if command == "HTTPShellNull":
                         pass
+                    elif "[sudo]" in decoded_payload:
+                        lines = decoded_payload.split("\n")
+                        filtered_lines = [line for line in lines if "[sudo]" not in line]
+                        decoded_payload = "\n".join(filtered_lines)
+                        print(colored(decoded_payload.rstrip()+"\n", "red"))
                     elif "HTTP-Client.sh" in decoded_payload:
                         decoded_payload = decoded_payload.split(":")[-1]
                         replace_payload = "bash: " + command + ":" + decoded_payload
