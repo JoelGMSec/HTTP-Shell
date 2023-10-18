@@ -1,4 +1,5 @@
 shlex
+pwinput
 readline
 http.server
 neotermcolor
