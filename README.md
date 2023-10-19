@@ -10,7 +10,7 @@ This shell is not fully interactive, but displays any errors on screen (both Win
 - Python 3 for Server
 - Install requirements.txt
 - Bash for Linux Client
-- PowerShell 4.0 or greater for Windows Client
+- PowerShell 2.0 or greater for Windows Client
 
 
 # Download
