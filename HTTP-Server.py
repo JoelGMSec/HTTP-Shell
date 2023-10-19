@@ -248,15 +248,14 @@ class MyServer(BaseHTTPRequestHandler):
                 return
 
             elif self.path == "/api/debug":
-                if decoded_payload == None:
-                    command = None
-                    print()
-                if "HTTPShellNull" in decoded_payload:
-                    command = None
-                    print()
-                if wait_for_cmd:
-                    wait_for_cmd = False ; sudo = True
                 if not first_run and command is not None:
+                    if decoded_payload == "" or not decoded_payload:
+                        print()
+                    elif "HTTPShellNull" in decoded_payload:
+                        decoded_payload = None
+                        print()
+                    if wait_for_cmd:
+                        wait_for_cmd = False ; sudo = True
                     if "[sudo]" in decoded_payload:
                         lines = decoded_payload.split("\n")
                         filtered_lines = [line for line in lines if "[sudo]" not in line]
@@ -267,15 +266,14 @@ class MyServer(BaseHTTPRequestHandler):
                 self.wfile.write(response.encode())
 
             elif self.path == "/api/error":
-                if decoded_payload == None:
-                    command = None
-                    print()
-                if "HTTPShellNull" in decoded_payload:
-                    command = None
-                    print()
-                if wait_for_cmd:
-                    wait_for_cmd = False ; sudo = False
                 if not first_run and command is not None:
+                    if decoded_payload == "" or not decoded_payload:
+                        print()
+                    elif "HTTPShellNull" in decoded_payload:
+                        decoded_payload = None
+                        print()
+                    if wait_for_cmd:
+                        wait_for_cmd = False ; sudo = False
                     if "[sudo]" in decoded_payload:
                         if not root:
                             lines = decoded_payload.split("\n")
