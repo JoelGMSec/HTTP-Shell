@@ -3,7 +3,7 @@
 # HTTP-Shell
 **HTTP-Shell** is Multiplatform Reverse Shell. This tool helps you to obtain a shell-like interface on a reverse connection over HTTP. Unlike other reverse shells, the main goal of the tool is to use it in conjunction with Microsoft Dev Tunnels, in order to get a connection as close as possible to a legitimate one.
 
-This shell is not fully interactive, but displays any errors on screen (both Windows and Linux), is capable of uploading and downloading files, has command history, terminal cleanup (even with CTRL+L), automatic reconnection and movement between directories.
+This shell is not fully interactive, but displays any errors on screen (both Windows and Linux), is capable of uploading and downloading files, has command history, terminal cleanup (even with CTRL+L), automatic reconnection, movement between directories and supports sudo (or sudo su) on Linux-based OS.
 
 
 # Requirements
