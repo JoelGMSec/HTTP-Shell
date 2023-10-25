@@ -254,6 +254,15 @@ class MyServer(BaseHTTPRequestHandler):
                     elif "HTTPShellNull" in decoded_payload:
                         decoded_payload = None
                         print()
+                    else:
+                        lines = decoded_payload.split("\n")
+                        while lines and lines[0].strip() == "":
+                            lines.pop(0)
+                        while lines and lines[-1].strip() == "":
+                            lines.pop(-1)
+                        if lines:
+                            lines[0] = lines[0].lstrip()
+                        decoded_payload = "\n".join(lines)
                     if wait_for_cmd:
                         wait_for_cmd = False ; sudo = True
                     if "[sudo]" in decoded_payload:
@@ -272,6 +281,15 @@ class MyServer(BaseHTTPRequestHandler):
                     elif "HTTPShellNull" in decoded_payload:
                         decoded_payload = None
                         print()
+                    else:
+                        lines = decoded_payload.split("\n")
+                        while lines and lines[0].strip() == "":
+                            lines.pop(0)
+                        while lines and lines[-1].strip() == "":
+                            lines.pop(-1)
+                        if lines:
+                            lines[0] = lines[0].lstrip()
+                        decoded_payload = "\n".join(lines)
                     if wait_for_cmd:
                         wait_for_cmd = False ; sudo = False
                     if "[sudo]" in decoded_payload:
