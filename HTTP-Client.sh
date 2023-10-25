@@ -25,7 +25,7 @@ GetEnv() {
 
 R64Encoder() {
    if [ "$1" = "-t" ]; then
-      base64=$(echo -n "$2" | base64 | tr -d '\n' | tr "/+" "_-" | tr -d "=" | tr -d "[:space:]")
+      base64=$(echo -n "$2" | base64 | tr -d '\n' | tr "/+" "_-" | tr -d "=" | sed -e 's/[ \t]*//')
    elif [ "$1" = "-f" ]; then
       base64=$(base64 "$2" | tr -d '\n' | tr "+/" "-_" | sed "s/=*$//")
    fi
