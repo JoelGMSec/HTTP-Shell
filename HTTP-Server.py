@@ -5,7 +5,7 @@
 #============================#
 
 import os
-import shlex
+import oslex
 import base64
 import pwinput
 import readline
@@ -137,7 +137,7 @@ class MyServer(BaseHTTPRequestHandler):
 
                     if "sudo" in command.split()[0]:
                         if not ":" in path:
-                            args = shlex.split(command)
+                            args = oslex.split(command)
                             if len(args) < 2:
                                 print(colored("[!] Usage: sudo command or sudo su\n","red"))
                                 continue
@@ -159,7 +159,7 @@ class MyServer(BaseHTTPRequestHandler):
                                         root = True
 
                     if "upload" in command.split()[0]:
-                        args = shlex.split(command)
+                        args = oslex.split(command)
                         if len(args) < 3 or len(args) > 3:
                             print(colored("[!] Usage: upload local_file remote_file\n","red"))
                             continue
@@ -170,7 +170,7 @@ class MyServer(BaseHTTPRequestHandler):
                             print(colored(f"[+] Uploading {local_path} in {remote_path}..\n","green"))
 
                     if "download" in command.split()[0]:
-                        args = shlex.split(command)
+                        args = oslex.split(command)
                         if len(args) < 3 or len(args) > 3:
                             print(colored("[!] Usage: download local_file remote_file\n","red"))
                             continue
