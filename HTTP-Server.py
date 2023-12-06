@@ -91,9 +91,10 @@ class MyServer(BaseHTTPRequestHandler):
                         encoded_file += self.encode_file_revbase64url(file_content)
                         self._set_headers()
                         self.wfile.write(encoded_file.encode("utf-8"))
+                        print(colored(f"[+] Uploading {local_path} in {remote_path}..","green"))
                         cmd_response = True
                 except:
-                    print(colored(f"[!] Error reading \"{filename}\" file!\n", "red"))
+                    print(colored(f"[!] Error reading \"{local_path}\" file!", "red"))
 
             elif self.path == "/api/v1/Client/Token":
                 if root:
@@ -172,8 +173,7 @@ class MyServer(BaseHTTPRequestHandler):
                         local_path = args[1]
                         remote_path = args[2]
                         command = "upload " + args[1] + "!" + args[2]
-                        print(colored(f"[+] Uploading {local_path} in {remote_path}..","green"))
-
+                        
                 if "download" in command.split()[0]:
                     args = oslex.split(command)
                     if len(args) < 3 or len(args) > 3:
@@ -183,8 +183,7 @@ class MyServer(BaseHTTPRequestHandler):
                         remote_path = args[1]
                         local_path = args[2]
                         command = "download " + args[1] + "!" + args[2]
-                        print(colored(f"[+] Downloading {remote_path} in {local_path}..","green"))
-
+                        
                 if "import-ps1" in command.split()[0]:
                     args = oslex.split(command)
                     if len(args) < 2 or len(args) > 2:
@@ -239,8 +238,6 @@ class MyServer(BaseHTTPRequestHandler):
         except(AttributeError, UnboundLocalError, BrokenPipeError, ConnectionResetError, IndexError, TypeError):
             pass
 
-        return first_run, command, wait_for_cmd, sudo, root, cmd_response
-
     def do_POST(self):
         global cmd_response
         global wait_for_cmd ; global root
@@ -264,14 +261,18 @@ class MyServer(BaseHTTPRequestHandler):
                 self.wfile.write(response.encode())
 
             elif self.path == "/api/v1/Client/Upload":
-                try:
-                    with open(local_path, "wb") as filename:
-                        file_content = self.decode_file_revbase64url(encoded_payload)
-                        filename.write(file_content)
-                        self.wfile.write(response.encode())
-                        cmd_response = True
-                except:
-                    print(colored(f"[!] Error writing \"{filename}\" file!\n", "red"))
+                if decoded_payload is not None:
+                    try:
+                        with open(local_path, "wb") as filename:
+                            file_content = self.decode_file_revbase64url(encoded_payload)
+                            filename.write(file_content)
+                            self.wfile.write(response.encode())
+                            print(colored(f"[+] Downloading {remote_path} in {local_path}..","green"))
+                            cmd_response = True
+                    except:
+                        print(colored(f"[!] Error writing \"{remote_path}\" file!", "red"))
+                else:
+                    print(colored(f"[!] Error downloading \"{remote_path}\" file!", "red"))
 
             elif self.path == "/api/v1/Client/Debug":
                 if not first_run and command is not None:
@@ -353,8 +354,6 @@ class MyServer(BaseHTTPRequestHandler):
 
         except:
             pass
-
-        return prompt, cmd_response
 
     def log_message(self, format, *args):
             pass
