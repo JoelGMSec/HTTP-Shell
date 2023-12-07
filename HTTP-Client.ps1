@@ -52,6 +52,7 @@ function R64Decoder {
 function Send-HttpRequest {
    param ([string]$url, [string]$method, [string]$body)
    $request = [System.Net.HttpWebRequest]::Create($url)
+   $request.Timeout = 600000
    $request.Method = $method ; $request.UserAgent = $userAgent
    $request.ContentType = "application/x-www-form-urlencoded"
    if ($body) {
