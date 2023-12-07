@@ -42,7 +42,7 @@ function Show-Help {
 function Kill-Program {
     $Host.UI.RawUI.ForegroundColor = 'White'
     Write-Host ; Write-Host "[!] Deleting temporary files.." -ForegroundColor Red ; Start-Sleep -milliseconds 2000
-    # Remove-Item $ScriptPath -Force ; Remove-Item $InvokeStealthPath -Force ; Remove-Item $PS2exePath -Force ; Remove-Item $IconPath -Force
+    Remove-Item $ScriptPath -Force ; Remove-Item $InvokeStealthPath -Force ; Remove-Item $PS2exePath -Force ; Remove-Item $IconPath -Force
     Write-Host ; Write-Host "[!] Exiting!" -ForegroundColor Red ; Write-Host ; Start-Sleep -milliseconds 2000 ; exit }
 
 # Main function
