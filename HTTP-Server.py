@@ -154,7 +154,7 @@ class MyServer(BaseHTTPRequestHandler):
                             else:
                                 if not sudo:
                                     old_cmd = ' '.join(args[1:])
-                                    print (colored(f"[sudo] write password for {str(whoami).rstrip()} on next command:\n","red"))
+                                    print (colored(f"[sudo] password for {str(whoami).rstrip()}:\n","red"))
                                     sudo_pass = pwinput.pwinput(prompt=(cinput + "\001\033[0m\002"))
                                     command = str("printf '" + sudo_pass + "'" + " | " + "sudo -S " + old_cmd)
                                     wait_for_cmd = True ; sudo = True
@@ -380,7 +380,7 @@ if __name__ == "__main__":
                 print (colored(banner, "blue"))
                 print (colored(banner2, "green"))
 
-            if len(argv) > 2:
+            if len(argv) > 1:
                 if "-h" in argv[1]:
                     print(colored("[!] Usage: HTTP-Server.py [PORT]\n","red"))
                     exit(0)
