@@ -10,6 +10,7 @@ import base64
 import pwinput
 import readline
 import neotermcolor
+from sys import argv
 from neotermcolor import colored
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -74,6 +75,9 @@ class MyServer(BaseHTTPRequestHandler):
             return decoded_data
         except:
             pass
+    
+    def log_message(self, format, *args):
+        pass
 
     def do_GET(self):
         global cmd_response
@@ -365,17 +369,18 @@ class MyServer(BaseHTTPRequestHandler):
 def run(server_class=HTTPServer, handler_class=MyServer, port=80):
     server_address = ("", port)
     httpd = server_class(server_address, handler_class)
-    print(colored(f"[>] Waiting for connection on port {port}..\n", "yellow"))
+    if not "-silent" in argv:
+        print(colored(f"[>] Waiting for connection on port {port}..\n", "yellow"))
     httpd.serve_forever()
 
 if __name__ == "__main__":
     while True:
         try:
-            print (colored(banner, "blue"))
-            print (colored(banner2, "green"))
-            from sys import argv
+            if not "-silent" in argv:
+                print (colored(banner, "blue"))
+                print (colored(banner2, "green"))
 
-            if len(argv) == 2:
+            if len(argv) > 2:
                 if "-h" in argv[1]:
                     print(colored("[!] Usage: HTTP-Server.py [PORT]\n","red"))
                     exit(0)
