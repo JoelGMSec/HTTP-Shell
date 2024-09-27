@@ -21,7 +21,7 @@ local_path = None ; remote_path = None
 first_run = True ; wait_for_cmd = False
 neotermcolor.readline_always_safe = True
 
-banner = """
+banner = r"""
   _   _ _____ _____ ____      ____  _          _ _ 
  | | | |_   _|_   _|  _ \    / ___|| |__   ___| | |
  | |_| | | |   | | | |_) |___\___ \| "_ \ / _ \ | |
